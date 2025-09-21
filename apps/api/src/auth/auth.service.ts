@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomBytes, randomUUID } from 'crypto';
+
 import { hash, verify } from 'argon2';
 import { addMinutes, addDays } from 'date-fns';
 import { z } from 'zod';
@@ -14,6 +15,7 @@ const refreshTokenPartsSchema = z.object({
   tokenId: z.string().uuid(),
   tokenSecret: z.string().min(10)
 });
+
 
 @Injectable()
 export class AuthService {
@@ -28,6 +30,7 @@ export class AuthService {
     roles: string[],
     options: { rotatedFrom?: string } = {}
   ): Promise<{
+
     accessToken: string;
     refreshToken: string;
     expiresAt: Date;
@@ -63,6 +66,7 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken, expiresAt };
+
   }
 
   async rotateRefreshToken(payload: unknown) {
@@ -75,6 +79,7 @@ export class AuthService {
 
     const existing = await this.prisma.refreshToken.findUnique({
       where: { id: tokenId }
+
     });
 
     if (!existing) {
@@ -86,6 +91,7 @@ export class AuthService {
     }
 
     const isValid = await verify(existing.tokenHash, tokenSecret).catch(() => false);
+
     if (!isValid || existing.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token is expired');
     }
@@ -102,6 +108,7 @@ export class AuthService {
           rotatedBy: 'self'
         }
       }
+
     });
 
     const user = await this.prisma.user.findUnique({
@@ -132,5 +139,6 @@ export class AuthService {
     }
 
     return {};
+
   }
 }
