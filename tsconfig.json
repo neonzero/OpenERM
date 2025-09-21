@@ -1,0 +1,9 @@
+{
+  "extends": "./packages/tsconfig/base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": false,
+    "noEmit": true
+  },
+  "include": []
+}
