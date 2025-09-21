@@ -1,165 +1,63 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { RiskService } from './risk.service';
-import { paginationSchema } from '../common/dto/pagination.dto';
+import { riskQuerySchema } from './dto/risk-query.dto';
 import { createRiskSchema } from './dto/create-risk.dto';
-import { updateRiskStatusSchema } from './dto/update-risk-status.dto';
 import { createRiskAssessmentSchema } from './dto/create-risk-assessment.dto';
-import { AuditTrailInterceptor } from '../common/interceptors/audit-trail.interceptor';
 import { createRiskQuestionnaireSchema } from './dto/create-risk-questionnaire.dto';
-import { submitQuestionnaireResponseSchema } from './dto/submit-questionnaire-response.dto';
-import { createRiskIndicatorSchema } from './dto/create-risk-indicator.dto';
-import { recordRiskIndicatorSchema } from './dto/record-risk-indicator.dto';
-import { createMitigationSchema } from './dto/create-mitigation.dto';
-import { updateMitigationStatusSchema } from './dto/update-mitigation-status.dto';
-import { importRisksSchema } from './dto/import-risks.dto';
+import { createTreatmentSchema } from './dto/create-treatment.dto';
 
-@Controller('risks')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@UseInterceptors(AuditTrailInterceptor)
+@Controller()
 export class RiskController {
   constructor(private readonly riskService: RiskService) {}
 
-  @Get()
-  @Roles('risk.viewer', 'risk.manager')
-  async list(@CurrentUser() user: AuthenticatedUser, @Query() query: unknown) {
-    const pagination = paginationSchema.parse(query);
-    const result = await this.riskService.list(user.tenantId, pagination);
-    return {
-      ...result,
-      items: result.items.map((item) => ({
-        id: item.id,
-        referenceId: item.referenceId,
-        title: item.title,
-        category: item.category.name,
-        inherentScore: item.inherentScore,
-        residualScore: item.residualScore,
-        status: item.status,
-        owner: item.owner?.displayName ?? null
-      }))
-    };
+  @Get('tenants/:tenantId/risks')
+  list(@Param('tenantId') tenantId: string, @Query() query: unknown) {
+    const filters = riskQuerySchema.parse(query);
+    return this.riskService.list(tenantId, filters);
   }
 
-  @Get('dashboard')
-  @Roles('risk.viewer', 'risk.manager')
-  dashboard(@CurrentUser() user: AuthenticatedUser) {
-    return this.riskService.dashboard(user.tenantId);
-  }
-
-  @Post()
-  @Roles('risk.manager')
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+  @Post('tenants/:tenantId/risks')
+  create(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
     const dto = createRiskSchema.parse(body);
-    return this.riskService.create(user.tenantId, dto, user.sub);
+    return this.riskService.create(tenantId, dto, actorId ?? null);
   }
 
-  @Post('import')
-  @Roles('risk.manager')
-  import(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    const dto = importRisksSchema.parse(body);
-    return this.riskService.importRisks(user.tenantId, dto, user.sub);
-  }
-
-  @Get('export')
-  @Roles('risk.manager', 'risk.viewer')
-  export(@CurrentUser() user: AuthenticatedUser) {
-    return this.riskService.exportRisks(user.tenantId);
-  }
-
-  @Patch(':riskId/status')
-  @Roles('risk.manager')
-  updateStatus(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
-  ) {
-    const dto = updateRiskStatusSchema.parse(body);
-    return this.riskService.updateStatus(user.tenantId, riskId, dto, user.sub);
-  }
-
-  @Post(':riskId/assessments')
-  @Roles('risk.assessor', 'risk.manager')
+  @Post('tenants/:tenantId/assessments')
   createAssessment(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = createRiskAssessmentSchema.parse({ ...body, riskId });
-    return this.riskService.createAssessment(user.tenantId, dto, user.sub);
+    const dto = createRiskAssessmentSchema.parse(body);
+    return this.riskService.createAssessment(tenantId, dto, actorId ?? null);
   }
 
-  @Post(':riskId/mitigations')
-  @Roles('risk.manager')
-  createMitigation(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
+  @Post('tenants/:tenantId/treatments')
+  createTreatment(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = createMitigationSchema.parse(body);
-    return this.riskService.createMitigation(user.tenantId, riskId, dto, user.sub);
+    const dto = createTreatmentSchema.parse(body);
+    return this.riskService.createTreatment(tenantId, dto, actorId ?? null);
   }
 
-  @Patch('mitigations/:mitigationId/status')
-  @Roles('risk.manager')
-  updateMitigation(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('mitigationId') mitigationId: string,
-    @Body() body: unknown
+  @Post('tenants/:tenantId/questionnaires')
+  createQuestionnaire(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = updateMitigationStatusSchema.parse(body);
-    return this.riskService.updateMitigationStatus(user.tenantId, mitigationId, dto, user.sub);
-  }
-
-  @Post(':riskId/indicators')
-  @Roles('risk.manager')
-  createIndicator(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
-  ) {
-    const dto = createRiskIndicatorSchema.parse(body);
-    return this.riskService.createIndicator(user.tenantId, riskId, dto, user.sub);
-  }
-
-  @Post('indicators/:indicatorId/record')
-  @Roles('risk.manager', 'risk.viewer')
-  recordIndicator(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('indicatorId') indicatorId: string,
-    @Body() body: unknown
-  ) {
-    const dto = recordRiskIndicatorSchema.parse(body);
-    return this.riskService.recordIndicatorUpdate(user.tenantId, indicatorId, dto, user.sub);
-  }
-
-  @Post('questionnaires')
-  @Roles('risk.manager')
-  createQuestionnaire(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
     const dto = createRiskQuestionnaireSchema.parse(body);
-    return this.riskService.createQuestionnaire(user.tenantId, dto, user.sub);
+    return this.riskService.createQuestionnaire(tenantId, dto, actorId ?? null);
   }
 
-  @Post('questionnaires/:questionnaireId/respond')
-  @Roles('risk.owner', 'risk.viewer', 'risk.manager')
-  respond(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('questionnaireId') questionnaireId: string,
-    @Body() body: unknown
-  ) {
-    const dto = submitQuestionnaireResponseSchema.parse(body);
-    return this.riskService.submitQuestionnaireResponse(user.tenantId, questionnaireId, dto, user.sub);
+  @Get('tenants/:tenantId/risk-heatmap')
+  heatmap(@Param('tenantId') tenantId: string) {
+    return this.riskService.heatmap(tenantId);
   }
 }

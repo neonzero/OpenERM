@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
 export const createFollowUpSchema = z.object({
-  findingId: z.string().uuid(),
-  evidenceRefs: z.array(z.string()).optional(),
-  status: z.enum(['OPEN', 'IN_PROGRESS', 'READY_FOR_VERIFICATION', 'CLOSED']).optional()
+  evidenceRefs: z.array(z.string()).default([]),
+  status: z.string().default('Open'),
+  verify: z
+    .object({
+      verifiedBy: z.string().uuid(),
+      verifiedAt: z.coerce.date()
+    })
+    .optional()
 });
 
 export type CreateFollowUpDto = z.infer<typeof createFollowUpSchema>;

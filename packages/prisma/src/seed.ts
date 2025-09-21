@@ -1,162 +1,142 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const tenant = await prisma.tenant.upsert({
-    where: { slug: 'acme-corp' },
+    where: { id: 'seed-tenant' },
     update: {},
     create: {
+      id: 'seed-tenant',
       name: 'Acme Corporation',
-      slug: 'acme-corp',
-      timeZone: 'UTC'
+      domain: 'acme.example',
+      settings: {
+        riskAppetite: 9,
+        defaultLocale: 'en-US'
+      }
     }
   });
 
-  const [auditManager, riskManager] = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'auditor@acme.example' },
-      update: {},
-      create: {
-        email: 'auditor@acme.example',
-        displayName: 'Lead Auditor',
-        tenantId: tenant.id,
-        roles: {
-          create: [
-            {
-              role: 'audit.manager'
-            }
-          ]
-        }
-      }
-    }),
-    prisma.user.upsert({
-      where: { email: 'risk.owner@acme.example' },
-      update: {},
-      create: {
-        email: 'risk.owner@acme.example',
-        displayName: 'Risk Owner',
-        tenantId: tenant.id,
-        roles: {
-          create: [
-            {
-              role: 'risk.manager'
-            }
-          ]
-        }
-      }
-    })
-  ]);
-
-  const category = await prisma.riskCategory.upsert({
-    where: { tenantId_name: { tenantId: tenant.id, name: 'Operational' } },
+  const auditManager = await prisma.user.upsert({
+    where: { email: 'auditor@acme.example' },
     update: {},
     create: {
+      id: 'seed-auditor',
       tenantId: tenant.id,
-      name: 'Operational'
+      email: 'auditor@acme.example',
+      name: 'Lead Auditor',
+      roles: [Role.TenantAdmin, Role.AuditManager]
+    }
+  });
+
+  const riskOwner = await prisma.user.upsert({
+    where: { email: 'risk.owner@acme.example' },
+    update: {},
+    create: {
+      id: 'seed-risk-owner',
+      tenantId: tenant.id,
+      email: 'risk.owner@acme.example',
+      name: 'Risk Owner',
+      roles: [Role.RiskOwner]
     }
   });
 
   const risk = await prisma.risk.upsert({
-    where: { tenantId_referenceId: { tenantId: tenant.id, referenceId: 'R-001' } },
+    where: { id: 'seed-risk' },
     update: {},
     create: {
+      id: 'seed-risk',
       tenantId: tenant.id,
-      categoryId: category.id,
-      referenceId: 'R-001',
       title: 'Cloud infrastructure outage',
-      inherentScore: 16,
-      residualScore: 8,
-      ownerId: riskManager.id,
-      status: 'MONITORING'
+      description: 'Loss of availability for externally hosted workloads.',
+      taxonomy: ['Operational'],
+      cause: 'Single-region deployment',
+      consequence: 'Extended downtime and SLA penalties',
+      ownerId: riskOwner.id,
+      inherentL: 4,
+      inherentI: 5,
+      residualL: 2,
+      residualI: 3,
+      status: 'Monitoring',
+      tags: ['availability', 'cloud']
     }
   });
 
-  await prisma.tenantRiskPreference.upsert({
-    where: { tenantId: tenant.id },
-    update: {
-      likelihoodAppetite: 3,
-      impactAppetite: 3,
-      residualAppetite: 9
-    },
-    create: {
-      tenantId: tenant.id,
-      likelihoodAppetite: 3,
-      impactAppetite: 3,
-      residualAppetite: 9
-    }
-  });
-
-  await prisma.riskIndicator.upsert({
-    where: { id: 'seed-indicator' },
+  await prisma.assessment.upsert({
+    where: { id: 'seed-assessment' },
     update: {},
     create: {
-      id: 'seed-indicator',
+      id: 'seed-assessment',
       tenantId: tenant.id,
       riskId: risk.id,
-      name: 'Monthly uptime %',
-      cadence: 'monthly',
-      direction: 'INCREASE',
-      threshold: 97,
-      target: 99,
-      status: 'ON_TRACK'
+      method: 'qual',
+      criteriaConfig: {
+        scale: 5,
+        velocity: false
+      },
+      scores: {
+        likelihood: 4,
+        impact: 5,
+        residualLikelihood: 2,
+        residualImpact: 3
+      },
+      residualScore: 6,
+      matrixBucket: 'L4_I5',
+      reviewerId: auditManager.id,
+      approvedAt: new Date()
     }
   });
 
-  await prisma.riskQuestionnaire.upsert({
-    where: { id: 'seed-questionnaire' },
+  await prisma.treatment.upsert({
+    where: { id: 'seed-treatment' },
     update: {},
     create: {
-      id: 'seed-questionnaire',
+      id: 'seed-treatment',
       tenantId: tenant.id,
-      title: 'Q1 Risk Survey',
-      period: 'Q1',
-      scope: 'Enterprise',
-      audience: ['Risk Owners', 'IT'],
-      status: 'SENT',
-      dueDate: new Date(),
-      questions: {
+      riskId: risk.id,
+      title: 'Implement multi-region failover',
+      ownerId: riskOwner.id,
+      due: new Date(Date.now() + 1000 * 60 * 60 * 24 * 90),
+      status: 'In Progress',
+      tasks: {
         create: [
-          {
-            prompt: 'Rate the likelihood of a major outage',
-            responseType: 'SCALE',
-            options: ['1', '2', '3', '4', '5'],
-            sortOrder: 1
-          },
-          {
-            prompt: 'List top resilience initiatives',
-            responseType: 'TEXT',
-            sortOrder: 2
-          }
+          { title: 'Design failover runbooks', status: 'Complete' },
+          { title: 'Deploy secondary region', status: 'In Progress' }
         ]
       }
     }
   });
 
-  const engagement = await prisma.auditEngagement.upsert({
-    where: { tenantId_code: { tenantId: tenant.id, code: 'FY24-IA-01' } },
+  await prisma.questionnaire.upsert({
+    where: { id: 'seed-questionnaire' },
     update: {},
     create: {
+      id: 'seed-questionnaire',
       tenantId: tenant.id,
-      code: 'FY24-IA-01',
-      name: 'Enterprise Risk Review',
-      status: 'PLANNING',
-      ownerId: auditManager.id
+      period: '2024-Q1',
+      scope: 'Infrastructure',
+      audience: ['Platform Engineering', 'Risk Owners'],
+      status: 'Sent',
+      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
+      questions: [
+        { id: 'q1', prompt: 'Rate outage likelihood (1-5)', type: 'scale' },
+        { id: 'q2', prompt: 'List top resiliency initiatives', type: 'text' }
+      ]
     }
   });
 
-  const entity = await prisma.auditableEntity.upsert({
-    where: { id: 'seed-entity' },
+  await prisma.auditUniverse.upsert({
+    where: { id: 'seed-universe' },
     update: {},
     create: {
-      id: 'seed-entity',
+      id: 'seed-universe',
       tenantId: tenant.id,
       name: 'Cloud Operations',
-      type: 'Process',
+      description: 'Core infrastructure services',
       criticality: 5,
-      riskLinkages: [risk.id],
-      lastAudit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 200),
-      nextDue: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180)
+      lastAudit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
+      nextDue: new Date(Date.now() + 1000 * 60 * 60 * 24 * 180),
+      linkedRiskIds: [risk.id]
     }
   });
 
@@ -167,135 +147,136 @@ async function main() {
       id: 'seed-plan',
       tenantId: tenant.id,
       period: 'FY24',
-      status: 'IN_PROGRESS',
-      items: {
-        create: [
-          {
-            engagementId: engagement.id,
-            auditableEntityId: entity.id,
-            priority: 1,
-            status: 'IN_PROGRESS'
-          }
-        ]
-      },
-      capacities: {
-        create: [
-          {
-            tenantId: tenant.id,
-            role: 'Auditor',
-            hoursAvailable: 1600,
-            utilization: 0.45
-          }
-        ]
+      status: 'Approved',
+      resourceModel: {
+        capacityHours: {
+          auditor: 1600,
+          manager: 400
+        }
       }
     }
   });
 
-  await prisma.timesheetEntry.upsert({
-    where: { id: 'seed-timesheet' },
+  const engagement = await prisma.engagement.upsert({
+    where: { id: 'seed-engagement' },
     update: {},
     create: {
-      id: 'seed-timesheet',
+      id: 'seed-engagement',
       tenantId: tenant.id,
-      userId: auditManager.id,
+      auditPlanId: plan.id,
+      title: 'Enterprise Resiliency Review',
+      scope: 'Evaluate cloud resiliency posture',
+      objectives: 'Assess controls for failover and incident response',
+      status: 'Fieldwork',
+      start: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
+      end: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
+      entityRef: 'seed-universe',
+      criticality: 5,
+      team: {
+        lead: auditManager.id,
+        members: [auditManager.id]
+      }
+    }
+  });
+
+  await prisma.rACMLine.upsert({
+    where: { id: 'seed-racm' },
+    update: {},
+    create: {
+      id: 'seed-racm',
       engagementId: engagement.id,
-      entryDate: new Date(),
-      hours: 6,
-      activity: 'Planning workshop',
-      status: 'APPROVED',
-      approverId: auditManager.id,
-      approvedAt: new Date()
+      process: 'Incident Response',
+      riskRef: risk.id,
+      controlRef: 'CTRL-01',
+      assertion: 'Availability',
+      testStep: 'Review incident drills',
+      version: 1
     }
   });
 
-  await prisma.reportTemplate.upsert({
-    where: { id: 'seed-risk-template' },
+  await prisma.workingPaper.upsert({
+    where: { id: 'seed-workpaper' },
     update: {},
     create: {
-      id: 'seed-risk-template',
-      tenantId: tenant.id,
-      name: 'Risk Register Summary',
-      type: 'RISK_REGISTER',
-      sections: {
-        intro: 'Risk Register Overview',
-        body: ['Risk Table', 'Heatmap'],
-        signOff: 'Prepared by Internal Audit'
-      }
-    }
-  });
-
-  await prisma.generatedReport.create({
-    data: {
-      tenantId: tenant.id,
-      templateId: 'seed-risk-template',
-      context: {
-        generatedFor: 'Demo seed',
-        generatedAt: new Date().toISOString()
-      },
-      fileRef: 'reports/demo-risk-register.pdf'
-    }
-  });
-
-  await prisma.auditProgram.upsert({
-    where: { id: 'seed-program' },
-    update: {},
-    create: {
-      id: 'seed-program',
-      tenantId: tenant.id,
+      id: 'seed-workpaper',
       engagementId: engagement.id,
-      name: 'FY24 Cloud Operations Program',
-      steps: {
-        create: [
-          {
-            title: 'Review resilience policy',
-            description: 'Validate policy coverage for outage response',
-            procedure: 'Inspect documents and interview owners',
-            evidence: 'Policy docs, interview notes',
-            sortOrder: 1
-          }
-        ]
-      }
+      kind: 'evidence',
+      storageKey: 'workpapers/seed-workpaper.pdf',
+      checksum: 'abc123',
+      uploadedBy: auditManager.id,
+      tags: ['evidence', 'resiliency']
     }
   });
 
-  await prisma.findingFollowUp.upsert({
+  const finding = await prisma.finding.upsert({
+    where: { id: 'seed-finding' },
+    update: {},
+    create: {
+      id: 'seed-finding',
+      engagementId: engagement.id,
+      severity: 'High',
+      condition: 'Single-region failover plan incomplete',
+      cause: 'Resource constraints',
+      effect: 'Prolonged outage if region fails',
+      recommendation: 'Complete multi-region deployment',
+      ownerId: riskOwner.id,
+      due: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60)
+    }
+  });
+
+  await prisma.followUp.upsert({
     where: { id: 'seed-followup' },
     update: {},
     create: {
       id: 'seed-followup',
-      tenantId: tenant.id,
-      findingId: (await prisma.auditFinding.create({
-        data: {
-          tenantId: tenant.id,
-          engagementId: engagement.id,
-          title: 'Outdated failover procedure',
-          criteria: 'Procedures must be refreshed annually',
-          condition: 'Procedures last updated 3 years ago',
-          rating: 'HIGH'
-        }
-      })).id,
-      evidenceRefs: ['s3://evidence/failover-plan.pdf'],
-      status: 'IN_PROGRESS'
+      findingId: finding.id,
+      evidenceRefs: ['evidence://multi-region-plan.pdf'],
+      status: 'Open'
     }
   });
 
-  await prisma.auditPlan.update({
-    where: { id: plan.id },
+  const template = await prisma.reportTemplate.upsert({
+    where: { id: 'seed-template' },
+    update: {},
+    create: {
+      id: 'seed-template',
+      tenantId: tenant.id,
+      name: 'Engagement Report',
+      sections: [
+        { id: 'executive-summary', title: 'Executive Summary' },
+        { id: 'findings', title: 'Findings' }
+      ],
+      placeholders: ['${engagement.title}', '${summary.heatmap}']
+    }
+  });
+
+  await prisma.report.upsert({
+    where: { id: 'seed-report' },
+    update: {},
+    create: {
+      id: 'seed-report',
+      tenantId: tenant.id,
+      engagementId: engagement.id,
+      templateId: template.id,
+      fileRef: 'reports/seed-report.pdf'
+    }
+  });
+
+  await prisma.event.create({
     data: {
-      items: {
-        updateMany: {
-          where: { planId: plan.id },
-          data: { status: 'IN_PROGRESS' }
-        }
-      }
+      tenantId: tenant.id,
+      actorId: auditManager.id,
+      entity: 'risk',
+      entityId: risk.id,
+      type: 'risk.seeded',
+      diff: { status: 'Monitoring' }
     }
   });
 }
 
 main()
-  .catch((error) => {
-    // eslint-disable-next-line no-console
-    console.error(error);
+  .catch((e) => {
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

@@ -6,30 +6,52 @@ import { Badge } from '../ui/badge';
 
 export type RiskRow = {
   id: string;
-  referenceId: string;
   title: string;
-  category: string;
-  inherentScore: number;
-  residualScore?: number;
+  taxonomy: string[];
+  inherentLikelihood: number;
+  inherentImpact: number;
+  residualLikelihood?: number | null;
+  residualImpact?: number | null;
   status: string;
   owner?: string | null;
+  appetiteBreached?: boolean;
 };
 
 export function RiskTable({ data }: { data: RiskRow[] }) {
   const columns = useMemo<ColumnDef<RiskRow>[]>(
     () => [
-      { accessorKey: 'referenceId', header: 'ID' },
       { accessorKey: 'title', header: 'Title' },
-      { accessorKey: 'category', header: 'Category' },
       {
-        accessorKey: 'inherentScore',
-        header: 'Inherent',
-        cell: ({ getValue }) => <span className="font-medium text-slate-900">{getValue<number>()}</span>
+        accessorKey: 'taxonomy',
+        header: 'Taxonomy',
+        cell: ({ getValue }) => {
+          const taxonomy = getValue<string[] | undefined>() ?? [];
+          return taxonomy.length > 0 ? taxonomy.join(', ') : '—';
+        }
       },
       {
-        accessorKey: 'residualScore',
-        header: 'Residual',
-        cell: ({ getValue }) => getValue<number | undefined>() ?? '—'
+        accessorKey: 'inherentLikelihood',
+        header: 'Inherent L×I',
+        cell: ({ row }) => (
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.inherentLikelihood}×{row.original.inherentImpact}
+          </span>
+        )
+      },
+      {
+        accessorKey: 'residualLikelihood',
+        header: 'Residual L×I',
+        cell: ({ row }) => {
+          const { residualLikelihood, residualImpact } = row.original;
+          if (residualLikelihood == null || residualImpact == null) {
+            return '—';
+          }
+          return (
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {residualLikelihood}×{residualImpact}
+            </span>
+          );
+        }
       },
       {
         accessorKey: 'owner',
@@ -39,7 +61,12 @@ export function RiskTable({ data }: { data: RiskRow[] }) {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ getValue }) => <Badge>{getValue<string>()}</Badge>
+        cell: ({ row, getValue }) => (
+          <div className="flex items-center gap-2">
+            <Badge>{getValue<string>()}</Badge>
+            {row.original.appetiteBreached ? <Badge className="bg-red-500/80 text-white">Appetite</Badge> : null}
+          </div>
+        )
       }
     ],
     []

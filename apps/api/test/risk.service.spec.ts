@@ -2,108 +2,100 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { RiskService } from '../src/risk/risk.service';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { EventsService } from '../src/events/events.service';
-import { IndicatorStatus, MitigationStatus, RiskStatus } from '@prisma/client';
 
 const createService = () => {
   const prisma = {
     risk: {
-      upsert: jest.fn(),
-      findMany: jest.fn()
-    },
-    riskCategory: {
-      findMany: jest.fn().mockResolvedValue([]),
-      create: jest.fn().mockImplementation(async ({ data }) => ({ id: `cat-${data.name}`, ...data }))
-    },
-    user: {
-      findFirst: jest.fn().mockResolvedValue({ id: 'user-1' })
-    },
-    auditTrailEvent: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
       create: jest.fn()
     },
-    mitigationPlan: {
-      findMany: jest.fn()
-    },
-    riskIndicator: {
-      findMany: jest.fn()
-    },
-    tenantRiskPreference: {
-      findUnique: jest.fn()
-    },
-    $transaction: jest.fn()
+    assessment: {
+      create: jest.fn()
+    }
   } as unknown as PrismaService;
 
   const events = {
-    emit: jest.fn()
+    record: jest.fn()
   } as unknown as EventsService;
 
   const service = new RiskService(prisma, events);
 
-  return { service, prisma, events };
+  return { prisma, events, service };
 };
 
 describe('RiskService', () => {
-  it('imports CSV risks and upserts rows', async () => {
-    const { service, prisma, events } = createService();
+  it('builds a 5x5 heatmap and classifies appetite breaches', async () => {
+    const { prisma, service } = createService();
 
-    const csv = 'referenceId,title,category,inherentScore,residualScore,status\nR-1,Ransomware,Technology,12,6,MITIGATION';
-
-    (prisma.risk.upsert as jest.Mock).mockResolvedValue({ id: 'risk-1' });
-
-    const result = await service.importRisks('tenant-1', { csv }, 'actor-1');
-
-    expect(result.imported).toBe(1);
-    expect(prisma.risk.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tenantId_referenceId: { tenantId: 'tenant-1', referenceId: 'R-1' } },
-        update: expect.objectContaining({
-          title: 'Ransomware',
-          status: RiskStatus.MITIGATION
-        }),
-        create: expect.objectContaining({
-          title: 'Ransomware',
-          status: RiskStatus.MITIGATION
-        })
-      })
-    );
-
-    expect(events.emit).toHaveBeenCalledWith('risk.imported', { tenantId: 'tenant-1', processed: 1 });
-  });
-
-  it('aggregates dashboard metrics', async () => {
-    const { service, prisma } = createService();
-
-    (prisma.$transaction as jest.Mock).mockResolvedValue([
-      [
-        {
-          id: 'risk-1',
-          title: 'Resiliency',
-          inherentScore: 15,
-          residualScore: 10,
-          owner: { displayName: 'Owner 1' }
-        }
-      ],
-      { residualAppetite: 5 },
-      [
-        { status: MitigationStatus.IN_PROGRESS },
-        { status: MitigationStatus.PLANNED }
-      ],
-      [
-        { status: IndicatorStatus.ON_TRACK },
-        { status: IndicatorStatus.BREACHED }
-      ]
+    (prisma.risk.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'risk-1',
+        title: 'Availability',
+        status: 'Monitoring',
+        residualL: 2,
+        residualI: 4,
+        inherentL: 4,
+        inherentI: 5,
+        appetiteBreached: true
+      },
+      {
+        id: 'risk-2',
+        title: 'Compliance',
+        status: 'Open',
+        residualL: null,
+        residualI: null,
+        inherentL: 3,
+        inherentI: 2,
+        appetiteBreached: false
+      }
     ]);
 
-    const dashboard = await service.dashboard('tenant-1');
+    const result = await service.heatmap('tenant-1');
 
-    expect(dashboard.totalRisks).toBe(1);
-    expect(dashboard.topRisks[0]).toEqual(
+    expect(result.matrix['L2_I4'].count).toBe(1);
+    expect(result.matrix['L3_I2'].count).toBe(1);
+    expect(result.matrix['L2_I4'].risks[0]).toMatchObject({ id: 'risk-1', appetiteBreached: true });
+    expect(result.totals.totalRisks).toBe(2);
+    expect(result.totals.appetiteBreaches).toBe(1);
+  });
+
+  it('creates assessments and updates residual scoring', async () => {
+    const { prisma, events, service } = createService();
+
+    (prisma.risk.findFirst as jest.Mock).mockResolvedValue({
+      id: 'risk-1',
+      tenantId: 'tenant-1',
+      residualL: null,
+      residualI: null
+    });
+
+    (prisma.assessment.create as jest.Mock).mockResolvedValue({ id: 'assessment-1' });
+
+    const dto = {
+      riskId: 'risk-1',
+      method: 'qual',
+      scores: {
+        likelihood: 4,
+        impact: 5,
+        residualLikelihood: 2,
+        residualImpact: 3,
+        appetiteThreshold: 5
+      }
+    } as const;
+
+    await service.createAssessment('tenant-1', dto, 'actor-1');
+
+    expect(prisma.assessment.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Resiliency',
-        residualScore: 10
+        data: expect.objectContaining({ matrixBucket: 'L4_I5' })
       })
     );
-    expect(dashboard.appetiteBreaches).toHaveLength(1);
-    expect(dashboard.mitigationSummary[MitigationStatus.IN_PROGRESS]).toBe(1);
-    expect(dashboard.indicatorSummary[IndicatorStatus.BREACHED]).toBe(1);
+    expect(prisma.risk.update).toHaveBeenCalledWith({
+      where: { id: 'risk-1' },
+      data: expect.objectContaining({ residualL: 2, residualI: 3, appetiteBreached: true })
+    });
+    expect(events.record).toHaveBeenCalledWith('tenant-1', expect.any(Object));
   });
 });

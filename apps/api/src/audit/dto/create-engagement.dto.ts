@@ -1,15 +1,16 @@
 import { z } from 'zod';
-import { AuditStatus } from '@prisma/client';
 
 export const createEngagementSchema = z.object({
-  code: z.string().min(3),
-  name: z.string().min(3),
-  description: z.string().optional(),
-  ownerId: z.string().uuid().optional(),
-  riskId: z.string().uuid().optional(),
-  status: z.nativeEnum(AuditStatus).default(AuditStatus.PLANNING),
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional()
+  auditPlanId: z.string().cuid().optional(),
+  title: z.string().min(3),
+  scope: z.string().optional(),
+  objectives: z.string().optional(),
+  status: z.string().default('Planned'),
+  start: z.coerce.date().optional(),
+  end: z.coerce.date().optional(),
+  entityRef: z.string().optional(),
+  criticality: z.number().int().min(1).max(5).optional(),
+  team: z.record(z.any()).optional()
 });
 
 export type CreateEngagementDto = z.infer<typeof createEngagementSchema>;

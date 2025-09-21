@@ -15,13 +15,16 @@ covering core risk management and internal audit workflows alongside infrastruct
 
 ## Key capabilities
 
-- **Security**: JWT-based auth with refresh rotation, Nest guards for RBAC, Prisma-backed audit trail,
-  and multi-tenant row ownership enforced in the schema.
-- **Risk management**: APIs and UI for risk registers, assessments, mitigation tracking, KRI
-  monitoring, quarterly questionnaires, and CSV import/export with appetite-aware dashboards.
-- **Internal audit**: Engagement planning, audit-universe driven plans, RACM/program management,
-  timesheets, findings follow-up, and PDF reporting with immutable evidence trails.
-- **Observability**: Pino structured logging, health checks, and event emission scaffolding.
+- **Security**: Short-lived JWT access tokens with refresh rotation, tenant-scoped data access, and
+  append-only event logging for every workflow mutation.
+- **Risk management**: REST APIs for creating and searching risks, capturing assessments (with
+  matrix bucket derivation and appetite flags), assigning mitigation plans, issuing questionnaires,
+  and producing a configurable 5×5 risk heat map.
+- **Internal audit**: Endpoints for maintaining the audit universe, building tenant audit plans,
+  creating engagements, updating RACM lines, tracking working papers, logging findings, managing
+  follow-up evidence, and registering generated reports.
+- **Observability**: Structured logging, health checks, and persisted domain events to support audit
+  trails and monitoring pipelines.
 - **DevOps**: Dockerfiles, docker-compose for local orchestration, Terraform scaffolding, and a CI
   pipeline (GitHub Actions) covering lint, type-check, and test stages.
 

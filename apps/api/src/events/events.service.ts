@@ -1,14 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
 
-  constructor(private readonly emitter: EventEmitter2) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  emit<T>(event: string, payload: T): void {
-    this.logger.debug(`Emitting event ${event}`);
-    this.emitter.emit(event, payload);
+  async record(
+    tenantId: string,
+    params: {
+      actorId?: string | null;
+      entity: string;
+      entityId: string;
+      type: string;
+      diff: unknown;
+    }
+  ): Promise<void> {
+    await this.prisma.event.create({
+      data: {
+        tenantId,
+        actorId: params.actorId ?? null,
+        entity: params.entity,
+        entityId: params.entityId,
+        type: params.type,
+        diff: params.diff
+      }
+    });
+
+    this.logger.debug(`Recorded event ${params.type} for ${params.entity}#${params.entityId}`);
   }
 }

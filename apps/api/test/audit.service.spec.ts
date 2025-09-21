@@ -2,181 +2,128 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { AuditService } from '../src/audit/audit.service';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { EventsService } from '../src/events/events.service';
-import { AuditPlanItemStatus, FindingRating, IndicatorStatus, ReportTemplateType, TimesheetStatus } from '@prisma/client';
 
 const createService = () => {
   const prisma = {
+    auditUniverse: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn()
+    },
     auditPlan: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      findFirst: jest.fn()
-    },
-    auditPlanItem: {
       create: jest.fn()
     },
-    auditEngagement: {
-      findMany: jest.fn(),
+    engagement: {
       findFirst: jest.fn(),
       create: jest.fn()
     },
-    auditFinding: {
-      findMany: jest.fn(),
+    rACMLine: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn()
+    },
+    workingPaper: {
+      create: jest.fn()
+    },
+    finding: {
       findFirst: jest.fn(),
       create: jest.fn()
     },
-    auditTrailEvent: {
+    followUp: {
+      update: jest.fn(),
       create: jest.fn()
     },
-    timesheetEntry: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn()
-    },
-    resourceCapacity: {
-      findMany: jest.fn()
-    },
-    riskIndicator: {
-      findMany: jest.fn()
-    },
-    recommendation: {
+    report: {
       create: jest.fn()
-    },
-    racmEntry: {
-      create: jest.fn()
-    },
-    auditProgram: {
-      create: jest.fn()
-    },
-    findingFollowUp: {
-      create: jest.fn()
-    },
-    reportTemplate: {
-      findFirst: jest.fn()
-    },
-    generatedReport: {
-      create: jest.fn()
-    },
-    risk: {
-      findMany: jest.fn()
-    },
-    $transaction: jest.fn()
+    }
   } as unknown as PrismaService;
 
   const events = {
-    emit: jest.fn()
+    record: jest.fn()
   } as unknown as EventsService;
 
   const service = new AuditService(prisma, events);
 
-  return { service, prisma, events };
+  return { prisma, events, service };
 };
 
 describe('AuditService', () => {
-  it('summarizes dashboard metrics', async () => {
-    const { service, prisma } = createService();
+  it('upserts audit universe entries and records events', async () => {
+    const { prisma, events, service } = createService();
 
-    (prisma.$transaction as jest.Mock).mockResolvedValue([
-      [
+    (prisma.auditUniverse.findFirst as jest.Mock).mockResolvedValue({
+      id: 'entity-1',
+      tenantId: 'tenant-1'
+    });
+
+    (prisma.auditUniverse.update as jest.Mock).mockResolvedValue({ id: 'entity-1' });
+    (prisma.auditUniverse.create as jest.Mock).mockResolvedValue({ id: 'entity-2' });
+
+    const dto = {
+      entities: [
         {
-          id: 'plan-1',
-          period: 'FY24',
-          status: 'IN_PROGRESS',
-          items: [
-            { status: AuditPlanItemStatus.COMPLETE },
-            { status: AuditPlanItemStatus.IN_PROGRESS }
-          ]
-        }
-      ],
-      [
+          id: 'entity-1',
+          name: 'Updated Entity',
+          description: 'desc',
+          criticality: 3,
+          linkedRiskIds: []
+        },
         {
-          id: 'eng-1',
-          name: 'ITGC',
-          status: 'FIELDWORK',
-          startDate: new Date(),
-          findings: [{ status: 'OPEN' }]
+          name: 'New Entity',
+          description: 'new',
+          criticality: 4,
+          linkedRiskIds: []
         }
-      ],
-      [
-        { rating: FindingRating.HIGH, createdAt: new Date(Date.now() - 10 * 86400000) }
-      ],
-      [
-        { hours: 32 }
-      ],
-      [
-        { hoursAvailable: 160 }
-      ],
-      [
-        { status: IndicatorStatus.ON_TRACK },
-        { status: IndicatorStatus.WARNING }
       ]
-    ]);
+    } as const;
 
-    const result = await service.dashboard('tenant-1');
+    const result = await service.upsertAuditUniverse('tenant-1', dto, 'actor-1');
 
-    expect(result.planProgress[0]).toEqual(
-      expect.objectContaining({
-        completed: 1,
-        total: 2
-      })
-    );
-    expect(result.utilization.bookedHours).toBe(32);
-    expect(result.indicatorSummary[IndicatorStatus.WARNING]).toBe(1);
-  });
-
-  it('records timesheets in submitted status', async () => {
-    const { service, prisma, events } = createService();
-
-    (prisma.auditEngagement.findFirst as jest.Mock).mockResolvedValue({ id: 'eng-1' });
-    (prisma.timesheetEntry.create as jest.Mock).mockResolvedValue({
-      id: 'ts-1',
-      status: TimesheetStatus.SUBMITTED,
-      engagementId: 'eng-1'
-    });
-
-    const entry = await service.recordTimesheet(
+    expect(result).toHaveLength(2);
+    expect(prisma.auditUniverse.update).toHaveBeenCalled();
+    expect(prisma.auditUniverse.create).toHaveBeenCalled();
+    expect(events.record).toHaveBeenCalledWith(
       'tenant-1',
-      'user-1',
-      { engagementId: 'eng-1', entryDate: new Date().toISOString(), hours: 4 },
-      'actor-1'
-    );
-
-    expect(entry.status).toBe(TimesheetStatus.SUBMITTED);
-    expect(events.emit).toHaveBeenCalledWith(
-      'audit.timesheetRecorded',
-      expect.objectContaining({ timesheetId: 'ts-1' })
+      expect.objectContaining({ type: 'audit.universe.upserted', diff: { count: 2 } })
     );
   });
 
-  it('generates PDF report from template', async () => {
-    const { service, prisma } = createService();
+  it('records follow-up progress by updating existing records', async () => {
+    const { prisma, events, service } = createService();
 
-    (prisma.reportTemplate.findFirst as jest.Mock).mockResolvedValue({
-      id: 'tmpl-1',
-      tenantId: 'tenant-1',
-      name: 'Risk Register Summary',
-      type: ReportTemplateType.RISK_REGISTER
+    (prisma.finding.findFirst as jest.Mock).mockResolvedValue({
+      id: 'finding-1',
+      followUps: [
+        {
+          id: 'follow-1',
+          status: 'Open',
+          evidenceRefs: [],
+          verifiedBy: null,
+          verifiedAt: null
+        }
+      ]
     });
-    (prisma.risk.findMany as jest.Mock).mockResolvedValue([
-      {
-        referenceId: 'R-1',
-        title: 'Risk One',
-        category: { name: 'Operational' },
-        residualScore: 8,
-        inherentScore: 12,
-        owner: { displayName: 'Owner' }
+
+    (prisma.followUp.update as jest.Mock).mockResolvedValue({ id: 'follow-1', status: 'Closed' });
+
+    const dto = {
+      evidenceRefs: ['evidence://doc.pdf'],
+      status: 'Closed',
+      verify: {
+        verifiedBy: 'user-1',
+        verifiedAt: new Date()
       }
-    ]);
-    (prisma.generatedReport.create as jest.Mock).mockResolvedValue({ id: 'report-1' });
+    } as const;
 
-    const report = await service.generateReport(
-      'tenant-1',
-      { templateId: 'tmpl-1', context: { type: 'RISK_REGISTER' } },
-      'actor-1'
+    const followUp = await service.recordFollowUp('tenant-1', 'finding-1', dto, 'actor-1');
+
+    expect(prisma.followUp.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'Closed' }) })
     );
-
-    expect(report.reportId).toBe('report-1');
-    expect(report.contentType).toBe('application/pdf');
-    expect(report.data).toEqual(expect.any(String));
+    expect(events.record).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ type: 'audit.followup.recorded', entityId: 'follow-1' })
+    );
+    expect(followUp.status).toBe('Closed');
   });
 });

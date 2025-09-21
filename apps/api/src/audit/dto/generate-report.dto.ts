@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 export const generateReportSchema = z.object({
-  templateId: z.string().uuid(),
-  context: z.object({
-    type: z.enum(['RISK_REGISTER', 'AUDIT_ENGAGEMENT']),
-    entityId: z.string().uuid().optional()
-  })
+  tenantId: z.string().cuid(),
+  templateId: z.string().cuid().optional(),
+  engagementId: z.string().cuid().optional(),
+  auditPlanId: z.string().cuid().optional(),
+  fileRef: z.string().min(3)
 });
 
 export type GenerateReportDto = z.infer<typeof generateReportSchema>;

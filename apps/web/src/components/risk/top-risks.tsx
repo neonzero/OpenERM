@@ -4,7 +4,7 @@ export type TopRisk = {
   id: string;
   title: string;
   residualScore: number;
-  owner: string;
+  owner?: string | null;
 };
 
 export function TopRisksList({ risks }: { risks: TopRisk[] }) {
@@ -17,7 +17,7 @@ export function TopRisksList({ risks }: { risks: TopRisk[] }) {
         >
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{risk.title}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Owner: {risk.owner}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Owner: {risk.owner ?? 'Unassigned'}</p>
           </div>
           <Badge className="bg-red-500/80 text-white">Residual {risk.residualScore.toFixed(1)}</Badge>
         </div>
