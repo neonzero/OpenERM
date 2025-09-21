@@ -25,7 +25,12 @@ export class AuditTrailInterceptor implements NestInterceptor {
           return;
         }
 
-        const scope = request.headers['x-audit-scope']?.toString() ?? AuditTrailScope.ENGAGEMENT;
+        const scopeHeader = request.headers['x-audit-scope']?.toString();
+        const normalizedScope = scopeHeader?.replace(/[-\s]/g, '_').toUpperCase();
+        const scope =
+          normalizedScope && (Object.values(AuditTrailScope) as string[]).includes(normalizedScope)
+            ? (normalizedScope as AuditTrailScope)
+            : AuditTrailScope.ENGAGEMENT;
         const entityId = request.headers['x-entity-id']?.toString() ?? 'unknown';
         const entityType = request.headers['x-entity-type']?.toString() ?? request.route?.path ?? 'unknown';
 
@@ -33,7 +38,7 @@ export class AuditTrailInterceptor implements NestInterceptor {
           data: {
             tenantId: user.tenantId,
             actorId: user.sub,
-            scope: scope as AuditTrailScope,
+            scope,
             entityId,
             entityType,
             action: `${request.method} ${request.originalUrl}`,

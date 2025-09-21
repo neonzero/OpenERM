@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { AuditTrailScope, PrismaClient, Role } from '@prisma/client';
 
 
 const prisma = new PrismaClient();
@@ -272,6 +272,21 @@ async function main() {
       type: 'risk.seeded',
       diff: { status: 'Monitoring' }
 
+    }
+  });
+
+  await prisma.auditTrailEvent.create({
+    data: {
+      tenantId: tenant.id,
+      actorId: auditManager.id,
+      scope: AuditTrailScope.ENGAGEMENT,
+      entityId: engagement.id,
+      entityType: 'engagement',
+      action: 'seed.initialized',
+      metadata: {
+        source: 'seed-script',
+        description: 'Seed data created for demo tenant'
+      }
     }
   });
 }
