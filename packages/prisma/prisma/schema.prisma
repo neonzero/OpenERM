@@ -3,469 +3,355 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TenantAdmin
+  AuditManager
+  Auditor
+  RiskOwner
+  Viewer
 }
 
 model Tenant {
-  id             String           @id @default(uuid())
-  name           String
-  slug           String           @unique
-  timeZone       String           @default("UTC")
-  locale         String?          @default("en-US")
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  users          User[]
-  riskCategories RiskCategory[]
-  risks          Risk[]
-  auditEngagements AuditEngagement[]
-  controls       Control[]
-  auditTrail     AuditTrailEvent[]
-  integrationSecrets TenantIntegrationSecret?
-}
-
-model TenantIntegrationSecret {
-  id        String  @id @default(uuid())
-  tenantId  String  @unique
-  oidcJson  Bytes
-  scimJson  Bytes?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  name       String
+  domain     String?
+  settings   Json?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  users      User[]
+  risks      Risk[]
+  controls   Control[]
+  assessments Assessment[]
+  questionnaires Questionnaire[]
+  auditUniverses AuditUniverse[]
+  auditPlans AuditPlan[]
+  engagements Engagement[]
+  reports    Report[]
+  events     Event[]
+  refreshTokens RefreshToken[]
 }
 
 model User {
-  id           String          @id @default(uuid())
-  tenantId     String
-  email        String          @unique
-  displayName  String
-  locale       String?         @default("en-US")
-  timeZone     String?         @default("UTC")
-  status       UserStatus      @default(ACTIVE)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  lastLoginAt  DateTime?
-  authSubject  String?         @unique
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  roles        RoleAssignment[]
-  authoredRisks Risk[]         @relation("RiskOwner")
-  authoredAssessments RiskAssessment[]
-  auditOwnerships AuditEngagement[] @relation("AuditOwner")
-  assignedWorkpapers AuditWorkpaper[] @relation("WorkpaperAssignee")
-  findingsAssigned AuditFinding[] @relation("FindingAssignee")
-  workflowEvents AuditTrailEvent[] @relation("EventActor")
-}
-
-enum UserStatus {
-  ACTIVE
-  INVITED
-  DISABLED
-}
-
-model RoleAssignment {
-  id        String   @id @default(uuid())
-  userId    String
-  role      String
-  grantedBy String?
-  grantedAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, role])
-}
-
-model RiskCategory {
-  id        String  @id @default(uuid())
+  id        String   @id @default(cuid())
   tenantId  String
-  name      String
-  order     Int      @default(0)
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  risks     Risk[]
-
-  @@unique([tenantId, name])
+  email     String   @unique
+  name      String?
+  roles     Role[]
+  locale    String?  @default("en-US")
+  timeZone  String?  @default("UTC")
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timesheets Timesheet[]
+  findings  Finding[] @relation("FindingOwner")
+  followUps FollowUp[] @relation("FollowUpVerifier")
+  ownedRisks Risk[]   @relation("RiskOwner")
+  refreshTokens RefreshToken[]
 }
 
 model Risk {
-  id            String           @id @default(uuid())
-  tenantId      String
-  categoryId    String
-  referenceId   String
-  title         String
-  description   String?
-  inherentScore Float
-  residualScore Float?
-  status        RiskStatus       @default(DRAFT)
-  ownerId       String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  reviewDate    DateTime?
-  tags          String[]         @default([])
-  sensitiveBlob Bytes?
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category      RiskCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  owner         User?            @relation("RiskOwner", fields: [ownerId], references: [id])
-  assessments   RiskAssessment[]
-  mitigations   MitigationPlan[]
-  controls      ControlRiskLink[]
-  auditTrail    AuditTrailEvent[]
-
-  @@index([tenantId, referenceId], map: "risk_reference_idx")
-  @@unique([tenantId, referenceId])
+  id               String      @id @default(cuid())
+  tenantId         String
+  title            String
+  description      String?
+  taxonomy         String[]
+  cause            String?
+  consequence      String?
+  ownerId          String?
+  inherentL        Int
+  inherentI        Int
+  residualL        Int?
+  residualI        Int?
+  appetiteBreached Boolean     @default(false)
+  status           String      @default("Open")
+  tags             String[]    @default([])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id])
+  assessments      Assessment[]
+  treatments       Treatment[]
+  indicators       RiskIndicator[]
+  questionnaireResponses QuestionnaireResponse[]
+  events           Event[]
 }
 
-enum RiskStatus {
-  DRAFT
-  ASSESSMENT
-  MITIGATION
-  MONITORING
-  CLOSED
+model Assessment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  riskId        String
+  method        String
+  criteriaConfig Json?
+  scores        Json
+  residualScore Int?
+  matrixBucket  String
+  reviewerId    String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk          Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  reviewer      User?    @relation(fields: [reviewerId], references: [id])
+}
+
+model Treatment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  riskId    String
+  title     String
+  ownerId   String?
+  due       DateTime?
+  status    String   @default("Open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk      Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  owner     User?    @relation(fields: [ownerId], references: [id])
+  tasks     TreatmentTask[]
+}
+
+model TreatmentTask {
+  id          String   @id @default(cuid())
+  treatmentId String
+  title       String
+  status      String   @default("Pending")
+  due         DateTime?
+  treatment   Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+}
+
+model Questionnaire {
+  id        String   @id @default(cuid())
+  tenantId  String
+  period    String
+  scope     String?
+  audience  String[]
+  questions Json
+  status    String   @default("Draft")
+  dueDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  responses QuestionnaireResponse[]
+}
+
+model QuestionnaireResponse {
+  id               String   @id @default(cuid())
+  tenantId         String
+  questionnaireId  String
+  respondentEmail  String
+  status           String   @default("Pending")
+  answers          Json?
+  submittedAt      DateTime?
+  riskId           String?
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  questionnaire    Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  risk             Risk?        @relation(fields: [riskId], references: [id])
+}
+
+model RiskIndicator {
+  id        String   @id @default(cuid())
+  tenantId  String
+  riskId    String
+  name      String
+  direction String
+  threshold Float?
+  unit      String?
+  cadence   String?
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk      Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  readings  IndicatorReading[]
+}
+
+model IndicatorReading {
+  id          String   @id @default(cuid())
+  indicatorId String
+  value       Float
+  recordedAt  DateTime @default(now())
+  indicator   RiskIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
 }
 
 model Control {
-  id              String           @id @default(uuid())
-  tenantId        String
-  name            String
-  description     String?
-  controlType     ControlType
-  frequency       String?
-  ownerId         String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner           User?            @relation(fields: [ownerId], references: [id])
-  risks           ControlRiskLink[]
-  assessments     ControlAssessment[]
-}
-
-enum ControlType {
-  PREVENTIVE
-  DETECTIVE
-  CORRECTIVE
-  DIRECTIONAL
-}
-
-model ControlRiskLink {
-  id        String  @id @default(uuid())
+  id        String   @id @default(cuid())
   tenantId  String
-  riskId    String
-  controlId String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  risk      Risk    @relation(fields: [riskId], references: [id], onDelete: Cascade)
-  control   Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
-
-  @@unique([riskId, controlId])
+  title     String
+  controlType String
+  frequency String?
+  ownerId   String?
+  status    String   @default("Design")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner     User?    @relation(fields: [ownerId], references: [id])
 }
 
-model RiskAssessment {
-  id             String        @id @default(uuid())
-  tenantId       String
-  riskId         String
-  assessorId     String
-  assessmentDate DateTime      @default(now())
-  methodology    String
-  inherentScore  Float
-  residualScore  Float?
-  status         AssessmentStatus @default(DRAFT)
-  notes          String?
-  attachments    AssessmentArtifact[]
-  risk           Risk          @relation(fields: [riskId], references: [id], onDelete: Cascade)
-  assessor       User          @relation(fields: [assessorId], references: [id], onDelete: Restrict)
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, riskId])
-}
-
-enum AssessmentStatus {
-  DRAFT
-  IN_REVIEW
-  APPROVED
-  ARCHIVED
-}
-
-model AssessmentArtifact {
-  id           String   @id @default(uuid())
-  assessmentId String
-  storageKey   String
-  hash         String
-  fileName     String
-  uploadedAt   DateTime  @default(now())
-  assessment   RiskAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-}
-
-model MitigationPlan {
-  id           String        @id @default(uuid())
-  tenantId     String
-  riskId       String
-  ownerId      String?
-  title        String
-  strategy     String
-  dueDate      DateTime?
-  status       MitigationStatus @default(PLANNED)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  risk         Risk           @relation(fields: [riskId], references: [id], onDelete: Cascade)
-  owner        User?          @relation(fields: [ownerId], references: [id])
-  actions      RemediationAction[]
-}
-
-enum MitigationStatus {
-  PLANNED
-  IN_PROGRESS
-  EFFECTIVE
-  CLOSED
-}
-
-model RemediationAction {
-  id              String        @id @default(uuid())
-  mitigationId    String
-  description     String
-  ownerId         String?
-  status          RemediationStatus @default(OPEN)
-  dueDate         DateTime?
-  completedAt     DateTime?
-  mitigation      MitigationPlan   @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
-  owner           User?            @relation(fields: [ownerId], references: [id])
-}
-
-enum RemediationStatus {
-  OPEN
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-model AuditEngagement {
-  id            String          @id @default(uuid())
+model AuditUniverse {
+  id            String   @id @default(cuid())
   tenantId      String
-  code          String
   name          String
   description   String?
-  status        AuditStatus      @default(PLANNING)
-  startDate     DateTime?
-  endDate       DateTime?
-  ownerId       String?
-  riskId        String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner         User?           @relation("AuditOwner", fields: [ownerId], references: [id])
-  risk          Risk?           @relation(fields: [riskId], references: [id])
-  workpapers    AuditWorkpaper[]
-  findings      AuditFinding[]
-  auditTrail    AuditTrailEvent[]
-
-  @@unique([tenantId, code])
+  criticality   Int
+  lastAudit     DateTime?
+  nextDue       DateTime?
+  linkedRiskIds String[]
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
-enum AuditStatus {
-  PLANNING
-  FIELDWORK
-  REVIEW
-  REPORTING
-  CLOSED
+model AuditPlan {
+  id           String   @id @default(cuid())
+  tenantId     String
+  period       String
+  status       String   @default("Draft")
+  resourceModel Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagements  Engagement[]
 }
 
-model AuditWorkpaper {
-  id             String      @id @default(uuid())
-  tenantId       String
-  engagementId   String
-  referenceCode  String
-  name           String
-  description    String?
-  status         WorkpaperStatus @default(IN_PROGRESS)
-  assigneeId     String?
-  storageKey     String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  engagement     AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
-  assignee       User?        @relation("WorkpaperAssignee", fields: [assigneeId], references: [id])
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  evidence       EvidenceItem[]
+model Engagement {
+  id           String   @id @default(cuid())
+  tenantId     String
+  auditPlanId  String?
+  title        String
+  scope        String?
+  objectives   String?
+  status       String   @default("Planned")
+  start        DateTime?
+  end          DateTime?
+  entityRef    String?
+  criticality  Int?
+  team         Json?
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditPlan    AuditPlan? @relation(fields: [auditPlanId], references: [id], onDelete: SetNull)
+  racmLines    RACMLine[]
+  workingPapers WorkingPaper[]
+  findings     Finding[]
+  timesheets   Timesheet[]
+  reports      Report[]
 }
 
-enum WorkpaperStatus {
-  IN_PROGRESS
-  IN_REVIEW
-  APPROVED
-  ARCHIVED
+model RACMLine {
+  id           String   @id @default(cuid())
+  engagementId String
+  process      String
+  riskRef      String
+  controlRef   String
+  assertion    String
+  testStep     String
+  version      Int      @default(1)
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
 }
 
-model EvidenceItem {
-  id           String   @id @default(uuid())
-  workpaperId  String
+model WorkingPaper {
+  id           String   @id @default(cuid())
+  engagementId String
+  kind         String
   storageKey   String
-  hash         String
-  uploadedById String
+  checksum     String
+  uploadedBy   String?
   uploadedAt   DateTime @default(now())
-  metadata     Json
-  workpaper    AuditWorkpaper @relation(fields: [workpaperId], references: [id], onDelete: Cascade)
-  uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  signedBy     String?
+  signedAt     DateTime?
+  tags         String[]
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
 }
 
-model AuditFinding {
-  id             String       @id @default(uuid())
-  tenantId       String
-  engagementId   String
-  title          String
-  criteria       String
-  condition      String
-  cause          String?
-  effect         String?
-  rating         FindingRating
-  status         FindingStatus @default(OPEN)
-  assigneeId     String?
-  dueDate        DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  engagement     AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
-  assignee       User?         @relation("FindingAssignee", fields: [assigneeId], references: [id])
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recommendations Recommendation[]
-  auditTrail     AuditTrailEvent[]
-}
-
-enum FindingRating {
-  LOW
-  MODERATE
-  HIGH
-  CRITICAL
-}
-
-enum FindingStatus {
-  OPEN
-  IN_PROGRESS
-  REMEDIATED
-  CLOSED
-}
-
-model Recommendation {
-  id           String    @id @default(uuid())
-  findingId    String
-  description  String
+model Finding {
+  id           String   @id @default(cuid())
+  engagementId String
+  severity     String
+  condition    String
+  cause        String
+  effect       String
+  recommendation String
+  status       String   @default("Open")
   ownerId      String?
-  status       RecommendationStatus @default(PROPOSED)
-  dueDate      DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  finding      AuditFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
-  owner        User?        @relation(fields: [ownerId], references: [id])
-  actionPlans  ActionPlan[]
+  due          DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  owner        User?      @relation("FindingOwner", fields: [ownerId], references: [id])
+  followUps    FollowUp[]
 }
 
-enum RecommendationStatus {
-  PROPOSED
-  APPROVED
-  IMPLEMENTED
-  RETIRED
+model FollowUp {
+  id         String   @id @default(cuid())
+  findingId  String
+  status     String   @default("Open")
+  evidenceRefs String[]
+  verifiedBy String?
+  verifiedAt DateTime?
+  updatedAt  DateTime @updatedAt
+  finding    Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  verifier   User?    @relation("FollowUpVerifier", fields: [verifiedBy], references: [id])
 }
 
-model ActionPlan {
-  id              String    @id @default(uuid())
-  recommendationId String
-  description     String
-  ownerId         String?
-  status          ActionPlanStatus @default(OPEN)
-  dueDate         DateTime?
-  completedAt     DateTime?
-  recommendation  Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
-  owner           User?          @relation(fields: [ownerId], references: [id])
+model Timesheet {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  engagementId String
+  date         DateTime
+  hours        Float
+  activity     String?
+  approvalStatus String @default("Pending")
+  createdAt    DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id])
 }
 
-enum ActionPlanStatus {
-  OPEN
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-model AuditTrailEvent {
-  id              String    @id @default(uuid())
-  tenantId        String
-  actorId         String?
-  scope           AuditTrailScope
-  entityId        String
-  entityType      String
-  action          String
-  metadata        Json?
-  createdAt       DateTime  @default(now())
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  actor           User?     @relation("EventActor", fields: [actorId], references: [id])
-}
-
-enum AuditTrailScope {
-  RISK
-  CONTROL
-  ASSESSMENT
-  MITIGATION
-  ENGAGEMENT
-  WORKPAPER
-  FINDING
-  ACTION_PLAN
-}
-
-model IntegrationEvent {
-  id          String   @id @default(uuid())
+model ReportTemplate {
+  id          String   @id @default(cuid())
   tenantId    String
-  type        String
-  payload     Json
-  publishedAt DateTime?
+  name        String
+  sections    Json
+  placeholders String[]
   createdAt   DateTime @default(now())
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reports     Report[]
+}
 
-  @@index([tenantId, publishedAt])
+model Report {
+  id           String   @id @default(cuid())
+  tenantId     String
+  engagementId String?
+  auditPlanId  String?
+  templateId   String?
+  fileRef      String
+  generatedAt  DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  auditPlan    AuditPlan? @relation(fields: [auditPlanId], references: [id], onDelete: SetNull)
+  template     ReportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+}
+
+model Event {
+  id       String   @id @default(cuid())
+  tenantId String
+  actorId  String?
+  entity   String
+  entityId String
+  type     String
+  diff     Json
+  timestamp DateTime @default(now())
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model RefreshToken {
-  id           String   @id @default(uuid())
-  tenantId     String
-  userId       String
-  tokenHash    String
-  createdAt    DateTime @default(now())
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  metadata     Json?
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  metadata  Json?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
-  @@index([expiresAt])
-}
 
-model ApiKey {
-  id          String   @id @default(uuid())
-  tenantId    String
-  name        String
-  tokenHash   String
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
-  createdById String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
-
-  @@index([tenantId, name])
-}
-
-model QueueJob {
-  id         String   @id @default(uuid())
-  tenantId   String
-  queue      String
-  status     JobStatus @default(PENDING)
-  payload    Json
-  attempts   Int       @default(0)
-  lastError  String?
-  runAt      DateTime? @default(now())
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([queue, status])
-}
-
-enum JobStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-  CANCELLED
 }

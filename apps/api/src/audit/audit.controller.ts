@@ -1,98 +1,106 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
-import { paginationSchema } from '../common/dto/pagination.dto';
+import { Body, Controller, Headers, Param, Post, Get } from '@nestjs/common';
+import { AuditService } from './audit.service';
+import { upsertAuditUniverseSchema } from './dto/upsert-audit-universe.dto';
+import { createAuditPlanSchema } from './dto/create-audit-plan.dto';
 import { createEngagementSchema } from './dto/create-engagement.dto';
-import { updateEngagementStatusSchema } from './dto/update-engagement-status.dto';
+import { upsertRacmSchema } from './dto/upsert-racm.dto';
 import { createWorkpaperSchema } from './dto/create-workpaper.dto';
 import { createFindingSchema } from './dto/create-finding.dto';
-import { createRecommendationSchema } from './dto/create-recommendation.dto';
-import { AuditService } from './audit.service';
-import { AuditTrailInterceptor } from '../common/interceptors/audit-trail.interceptor';
+import { createFollowUpSchema } from './dto/create-follow-up.dto';
+import { generateReportSchema } from './dto/generate-report.dto';
 
-@Controller('audits')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@UseInterceptors(AuditTrailInterceptor)
+@Controller()
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
-  @Get('engagements')
-  @Roles('audit.viewer', 'audit.manager')
-  async listEngagements(@CurrentUser() user: AuthenticatedUser, @Query() query: unknown) {
-    const pagination = paginationSchema.parse(query);
-    const result = await this.auditService.listEngagements(user.tenantId, pagination);
-    return {
-      ...result,
-      items: result.items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        status: item.status,
-        startDate: item.startDate,
-        owner: item.owner ? { id: item.owner.id, displayName: item.owner.displayName } : null
-      }))
-    };
+  @Get('tenants/:tenantId/engagements')
+  listEngagements(@Param('tenantId') tenantId: string) {
+    return this.auditService.listEngagements(tenantId);
   }
 
-  @Post('engagements')
-  @Roles('audit.manager')
-  createEngagement(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
-    const dto = createEngagementSchema.parse(body);
-    return this.auditService.createEngagement(user.tenantId, dto, user.sub);
+  @Get('tenants/:tenantId/audit-dashboard')
+  dashboard(@Param('tenantId') tenantId: string) {
+    return this.auditService.dashboard(tenantId);
   }
 
-  @Patch('engagements/:engagementId/status')
-  @Roles('audit.manager')
-  updateEngagementStatus(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('engagementId') engagementId: string,
-    @Body() body: unknown
+  @Post('tenants/:tenantId/audit-universe')
+  upsertUniverse(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = updateEngagementStatusSchema.parse(body);
-    return this.auditService.updateEngagementStatus(user.tenantId, engagementId, dto, user.sub);
+    const dto = upsertAuditUniverseSchema.parse(body);
+    return this.auditService.upsertAuditUniverse(tenantId, dto, actorId ?? null);
   }
 
-  @Post('engagements/:engagementId/workpapers')
-  @Roles('audit.manager', 'audit.staff')
-  createWorkpaper(
-    @CurrentUser() user: AuthenticatedUser,
+  @Post('tenants/:tenantId/audit-plans')
+  createPlan(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
+    const dto = createAuditPlanSchema.parse(body);
+    return this.auditService.createPlan(tenantId, dto, actorId ?? null);
+  }
+
+  @Post('tenants/:tenantId/engagements')
+  createEngagement(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
+    const dto = createEngagementSchema.parse(body);
+    return this.auditService.createEngagement(tenantId, dto, actorId ?? null);
+  }
+
+  @Post('engagements/:engagementId/racm')
+  upsertRacm(
     @Param('engagementId') engagementId: string,
-    @Body() body: unknown
+    @Body() body: unknown,
+    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-user-id') actorId?: string
+  ) {
+    const dto = upsertRacmSchema.parse(body);
+    return this.auditService.upsertRacm(tenantId, engagementId, dto, actorId ?? null);
+  }
+
+  @Post('engagements/:engagementId/working-papers')
+  addWorkpaper(
+    @Param('engagementId') engagementId: string,
+    @Body() body: unknown,
+    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-user-id') actorId?: string
   ) {
     const dto = createWorkpaperSchema.parse(body);
-    return this.auditService.createWorkpaper(user.tenantId, engagementId, dto, user.sub);
+    return this.auditService.addWorkpaper(tenantId, engagementId, dto, actorId ?? null);
   }
 
   @Post('engagements/:engagementId/findings')
-  @Roles('audit.manager')
   createFinding(
-    @CurrentUser() user: AuthenticatedUser,
     @Param('engagementId') engagementId: string,
-    @Body() body: unknown
+    @Body() body: unknown,
+    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-user-id') actorId?: string
   ) {
     const dto = createFindingSchema.parse(body);
-    return this.auditService.createFinding(user.tenantId, engagementId, dto, user.sub);
+    return this.auditService.createFinding(tenantId, engagementId, dto, actorId ?? null);
   }
 
-  @Post('findings/:findingId/recommendations')
-  @Roles('audit.manager', 'audit.staff')
-  createRecommendation(
-    @CurrentUser() user: AuthenticatedUser,
+  @Post('findings/:findingId/follow-up')
+  recordFollowUp(
     @Param('findingId') findingId: string,
-    @Body() body: unknown
+    @Body() body: unknown,
+    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = createRecommendationSchema.parse(body);
-    return this.auditService.createRecommendation(user.tenantId, findingId, dto, user.sub);
+    const dto = createFollowUpSchema.parse(body);
+    return this.auditService.recordFollowUp(tenantId, findingId, dto, actorId ?? null);
+  }
+
+  @Post('reports/generate')
+  generateReport(@Body() body: unknown, @Headers('x-user-id') actorId?: string) {
+    const dto = generateReportSchema.parse(body);
+    return this.auditService.generateReport(dto, actorId ?? null);
+
   }
 }

@@ -113,12 +113,14 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: existing.userId },
-      include: { roles: true }
+      select: { roles: true }
+
     });
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    const roles = user?.roles.map((role) => role.role) ?? [];
+    const roles = user?.roles ?? [];
+
 
     return this.issueTokens(existing.tenantId, existing.userId, roles, { rotatedFrom: existing.id });
   }

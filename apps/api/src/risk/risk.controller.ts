@@ -1,77 +1,64 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-  UseInterceptors
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { RiskService } from './risk.service';
-import { paginationSchema } from '../common/dto/pagination.dto';
+import { riskQuerySchema } from './dto/risk-query.dto';
 import { createRiskSchema } from './dto/create-risk.dto';
-import { updateRiskStatusSchema } from './dto/update-risk-status.dto';
 import { createRiskAssessmentSchema } from './dto/create-risk-assessment.dto';
-import { AuditTrailInterceptor } from '../common/interceptors/audit-trail.interceptor';
+import { createRiskQuestionnaireSchema } from './dto/create-risk-questionnaire.dto';
+import { createTreatmentSchema } from './dto/create-treatment.dto';
 
-@Controller('risks')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@UseInterceptors(AuditTrailInterceptor)
+@Controller()
 export class RiskController {
   constructor(private readonly riskService: RiskService) {}
 
-  @Get()
-  @Roles('risk.viewer', 'risk.manager')
-  async list(@CurrentUser() user: AuthenticatedUser, @Query() query: unknown) {
-    const pagination = paginationSchema.parse(query);
-    const result = await this.riskService.list(user.tenantId, pagination);
-    return {
-      ...result,
-      items: result.items.map((item) => ({
-        id: item.id,
-        referenceId: item.referenceId,
-        title: item.title,
-        category: item.category.name,
-        inherentScore: item.inherentScore,
-        residualScore: item.residualScore,
-        status: item.status,
-        owner: item.owner?.displayName ?? null
-      }))
-    };
+  @Get('tenants/:tenantId/risks')
+  list(@Param('tenantId') tenantId: string, @Query() query: unknown) {
+    const filters = riskQuerySchema.parse(query);
+    return this.riskService.list(tenantId, filters);
   }
 
-  @Post()
-  @Roles('risk.manager')
-  create(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
+  @Post('tenants/:tenantId/risks')
+  create(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
     const dto = createRiskSchema.parse(body);
-    return this.riskService.create(user.tenantId, dto, user.sub);
+    return this.riskService.create(tenantId, dto, actorId ?? null);
   }
 
-  @Patch(':riskId/status')
-  @Roles('risk.manager')
-  updateStatus(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
-  ) {
-    const dto = updateRiskStatusSchema.parse(body);
-    return this.riskService.updateStatus(user.tenantId, riskId, dto, user.sub);
-  }
-
-  @Post(':riskId/assessments')
-  @Roles('risk.assessor', 'risk.manager')
+  @Post('tenants/:tenantId/assessments')
   createAssessment(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('riskId') riskId: string,
-    @Body() body: unknown
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = createRiskAssessmentSchema.parse({ ...body, riskId });
-    return this.riskService.createAssessment(user.tenantId, dto, user.sub);
+    const dto = createRiskAssessmentSchema.parse(body);
+    return this.riskService.createAssessment(tenantId, dto, actorId ?? null);
+  }
+
+  @Post('tenants/:tenantId/treatments')
+  createTreatment(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
+    const dto = createTreatmentSchema.parse(body);
+    return this.riskService.createTreatment(tenantId, dto, actorId ?? null);
+  }
+
+  @Post('tenants/:tenantId/questionnaires')
+  createQuestionnaire(
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown,
+    @Headers('x-user-id') actorId?: string
+  ) {
+    const dto = createRiskQuestionnaireSchema.parse(body);
+    return this.riskService.createQuestionnaire(tenantId, dto, actorId ?? null);
+  }
+
+  @Get('tenants/:tenantId/risk-heatmap')
+  heatmap(@Param('tenantId') tenantId: string) {
+    return this.riskService.heatmap(tenantId);
+
   }
 }

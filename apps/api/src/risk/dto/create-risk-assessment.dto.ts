@@ -1,13 +1,19 @@
 import { z } from 'zod';
-import { AssessmentStatus } from '@prisma/client';
 
 export const createRiskAssessmentSchema = z.object({
-  riskId: z.string().uuid(),
-  assessorId: z.string().uuid(),
-  methodology: z.string().min(3),
-  inherentScore: z.number().min(0).max(25),
-  residualScore: z.number().min(0).max(25).optional(),
-  status: z.nativeEnum(AssessmentStatus).default(AssessmentStatus.DRAFT),
+  riskId: z.string().cuid(),
+  method: z.enum(['qual', 'quant']).default('qual'),
+  criteriaConfig: z.record(z.any()).optional(),
+  scores: z.object({
+    likelihood: z.number().int().min(1).max(5),
+    impact: z.number().int().min(1).max(5),
+    velocity: z.number().int().min(1).max(5).optional(),
+    residualLikelihood: z.number().int().min(1).max(5).optional(),
+    residualImpact: z.number().int().min(1).max(5).optional(),
+    appetiteThreshold: z.number().int().min(1).max(25).optional()
+  }),
+  reviewerId: z.string().uuid().optional(),
+
   notes: z.string().optional()
 });
 
