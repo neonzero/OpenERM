@@ -1,0 +1,23 @@
+{
+  "navigation": {
+    "risk": "Risk Register",
+    "audit": "Audit Hub",
+    "dashboard": "Dashboard"
+  },
+  "risk": {
+    "title": "Risk register overview",
+    "subtitle": "Monitor enterprise risks, track assessments, and coordinate mitigation plans.",
+    "table": {
+      "id": "ID",
+      "title": "Title",
+      "category": "Category",
+      "inherent": "Inherent",
+      "residual": "Residual",
+      "status": "Status"
+    }
+  },
+  "audit": {
+    "title": "Internal audit lifecycle",
+    "subtitle": "Track audit engagements, workpapers, and findings with immutable evidence trails."
+  }
+}
