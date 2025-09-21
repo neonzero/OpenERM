@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 
 const navItems = [
+  { href: '/dashboard', label: 'Dashboard' },
   { href: '/risk', label: 'Risk Register' },
   { href: '/audit', label: 'Audit Hub' }
 ];
