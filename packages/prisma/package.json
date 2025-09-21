@@ -1,0 +1,19 @@
+{
+  "name": "@open-erm/prisma",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "deploy": "prisma migrate deploy",
+    "seed": "ts-node --project tsconfig.json src/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.13.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.13.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}
