@@ -1,5 +1,6 @@
 import { PrismaClient, Role } from '@prisma/client';
 
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -270,6 +271,7 @@ async function main() {
       entityId: risk.id,
       type: 'risk.seeded',
       diff: { status: 'Monitoring' }
+
     }
   });
 }
@@ -277,6 +279,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
+
     process.exit(1);
   })
   .finally(async () => {

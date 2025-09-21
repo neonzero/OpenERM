@@ -13,6 +13,7 @@ export const createRiskAssessmentSchema = z.object({
     appetiteThreshold: z.number().int().min(1).max(25).optional()
   }),
   reviewerId: z.string().uuid().optional(),
+
   notes: z.string().optional()
 });
 

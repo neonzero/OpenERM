@@ -7,6 +7,7 @@ import { PlanProgressList, PlanProgress } from '../../../components/audit/plan-p
 import { FindingsAging } from '../../../components/audit/findings-aging';
 import { SummaryPills } from '../../../components/risk/summary-pills';
 
+
 export const metadata: Metadata = {
   title: 'Audit Hub | OpenERM'
 };
@@ -29,6 +30,7 @@ type DashboardResponse = {
   utilization: { totalCapacity: number; bookedHours: number; utilizationRate: number };
   engagements: Array<{ id: string; title: string; status: string; startDate: string | null; findingsOpen: number }>;
   indicatorSummary: Record<string, number>;
+
 };
 
 async function fetchEngagements(): Promise<EngagementEvent[]> {
@@ -40,6 +42,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
       status: item.status,
       timestamp: item.startDate ?? new Date().toISOString(),
       owner: item.owner ?? 'Unassigned'
+
     }));
   } catch (error) {
     return [
@@ -47,6 +50,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
         id: 'eng-1',
         title: 'FY24 Enterprise Risk Review',
         status: 'Planning',
+
         timestamp: new Date().toISOString(),
         owner: 'Lead Auditor'
       },
@@ -54,6 +58,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
         id: 'eng-2',
         title: 'ITGC Controls Assessment',
         status: 'Fieldwork',
+
         timestamp: new Date().toISOString(),
         owner: 'Audit Manager'
       }
@@ -88,6 +93,7 @@ export default async function AuditPage() {
     }
     return sum;
   }, 0);
+
 
   return (
     <section className="space-y-6">
@@ -141,12 +147,14 @@ export default async function AuditPage() {
             <p>Utilization rate: {utilizationPercent}%</p>
           </div>
         </div>
+
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Engagement progress</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Status changes are logged to the immutable audit trail with actor, timestamp, and supporting evidence references.
+
         </p>
         <div className="mt-6">
           <EngagementTimeline events={engagements} />

@@ -9,6 +9,7 @@ export const createFindingSchema = z.object({
   ownerId: z.string().uuid().optional(),
   due: z.coerce.date().optional(),
   status: z.string().default('Open')
+
 });
 
 export type CreateFindingDto = z.infer<typeof createFindingSchema>;

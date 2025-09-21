@@ -12,6 +12,7 @@ const createService = () => {
       create: jest.fn()
     },
     assessment: {
+
       create: jest.fn()
     }
   } as unknown as PrismaService;
@@ -97,5 +98,6 @@ describe('RiskService', () => {
       data: expect.objectContaining({ residualL: 2, residualI: 3, appetiteBreached: true })
     });
     expect(events.record).toHaveBeenCalledWith('tenant-1', expect.any(Object));
+
   });
 });

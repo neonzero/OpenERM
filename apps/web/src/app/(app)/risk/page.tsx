@@ -112,6 +112,7 @@ async function fetchRisks(): Promise<RiskRow[]> {
   try {
     const response = await apiClient.get<RisksResponse>(`/tenants/${TENANT_ID}/risks`);
     return response.items.map(toRiskRow);
+
   } catch (error) {
     return [
       {
@@ -194,6 +195,7 @@ export default async function RiskPage() {
   const appetiteBreaches = computeAppetiteBreaches(riskRows);
   const counts = computeCounts(riskRows);
   const highDensityBuckets = heatmapCells.filter((cell) => cell.count >= 2).length;
+
 
   return (
     <section className="space-y-6">
@@ -282,6 +284,7 @@ export default async function RiskPage() {
 
       <Suspense fallback={<div className="rounded-xl border border-dashed border-slate-300 p-10 text-center">Loading risk data…</div>}>
         <RiskTable data={riskRows} />
+
       </Suspense>
     </section>
   );

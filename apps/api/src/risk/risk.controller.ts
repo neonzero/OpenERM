@@ -59,5 +59,6 @@ export class RiskController {
   @Get('tenants/:tenantId/risk-heatmap')
   heatmap(@Param('tenantId') tenantId: string) {
     return this.riskService.heatmap(tenantId);
+
   }
 }

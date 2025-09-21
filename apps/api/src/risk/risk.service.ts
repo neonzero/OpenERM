@@ -10,6 +10,7 @@ import { RiskQueryDto } from './dto/risk-query.dto';
 
 const matrixKey = (likelihood: number, impact: number) => `L${likelihood}_I${impact}`;
 
+
 @Injectable()
 export class RiskService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
@@ -87,6 +88,7 @@ export class RiskService {
 
   async createAssessment(tenantId: string, dto: CreateRiskAssessmentDto, actorId?: string | null) {
     const risk = await this.prisma.risk.findFirst({ where: { id: dto.riskId, tenantId } });
+
     if (!risk) {
       throw new NotFoundException('Risk not found');
     }
@@ -162,6 +164,7 @@ export class RiskService {
   }
 
   async createTreatment(tenantId: string, dto: CreateTreatmentDto, actorId?: string | null) {
+
     const risk = await this.prisma.risk.findFirst({ where: { id: dto.riskId, tenantId } });
     if (!risk) {
       throw new NotFoundException('Risk not found');
@@ -252,5 +255,6 @@ export class RiskService {
         appetiteBreaches: risks.filter((risk) => risk.appetiteBreached).length
       }
     };
+
   }
 }

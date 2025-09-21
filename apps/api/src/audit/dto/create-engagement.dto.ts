@@ -11,6 +11,7 @@ export const createEngagementSchema = z.object({
   entityRef: z.string().optional(),
   criticality: z.number().int().min(1).max(5).optional(),
   team: z.record(z.any()).optional()
+
 });
 
 export type CreateEngagementDto = z.infer<typeof createEngagementSchema>;

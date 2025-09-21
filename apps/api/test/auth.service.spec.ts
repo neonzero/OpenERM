@@ -50,6 +50,7 @@ describe('AuthService', () => {
     (userMock.findUnique as jest.Mock).mockResolvedValue({
       id: 'user-1',
       roles: ['risk.viewer']
+
     });
 
     (jwtMock.signAsync as jest.Mock).mockResolvedValue('new-access-token');
@@ -86,6 +87,7 @@ describe('AuthService', () => {
     expect(userMock.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       select: { roles: true }
+
     });
   });
 

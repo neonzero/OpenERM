@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 
+
 @Injectable()
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
@@ -29,5 +30,6 @@ export class EventsService {
     });
 
     this.logger.debug(`Recorded event ${params.type} for ${params.entity}#${params.entityId}`);
+
   }
 }

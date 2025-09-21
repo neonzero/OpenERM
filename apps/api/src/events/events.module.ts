@@ -4,6 +4,7 @@ import { EventsService } from './events.service';
 
 @Module({
   imports: [PrismaModule],
+
   providers: [EventsService],
   exports: [EventsService]
 })

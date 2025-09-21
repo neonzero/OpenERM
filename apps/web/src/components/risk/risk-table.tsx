@@ -15,6 +15,7 @@ export type RiskRow = {
   status: string;
   owner?: string | null;
   appetiteBreached?: boolean;
+
 };
 
 export function RiskTable({ data }: { data: RiskRow[] }) {
@@ -57,6 +58,7 @@ export function RiskTable({ data }: { data: RiskRow[] }) {
         accessorKey: 'owner',
         header: 'Owner',
         cell: ({ getValue }) => getValue<string | null>() ?? '—'
+
       },
       {
         accessorKey: 'status',
@@ -67,6 +69,7 @@ export function RiskTable({ data }: { data: RiskRow[] }) {
             {row.original.appetiteBreached ? <Badge className="bg-red-500/80 text-white">Appetite</Badge> : null}
           </div>
         )
+
       }
     ],
     []

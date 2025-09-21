@@ -7,6 +7,7 @@ export const createWorkpaperSchema = z.object({
   tags: z.array(z.string()).default([]),
   signedBy: z.string().uuid().optional(),
   signedAt: z.coerce.date().optional()
+
 });
 
 export type CreateWorkpaperDto = z.infer<typeof createWorkpaperSchema>;

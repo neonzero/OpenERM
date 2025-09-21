@@ -12,6 +12,7 @@ import { CreateFindingDto } from './dto/create-finding.dto';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
 import { GenerateReportDto } from './dto/generate-report.dto';
 
+
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
@@ -125,11 +126,13 @@ export class AuditService {
       diff: { title: dto.title }
     });
 
+
     return engagement;
   }
 
   async upsertRacm(tenantId: string, engagementId: string, dto: UpsertRacmDto, actorId?: string | null) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
+
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -167,6 +170,7 @@ export class AuditService {
     actorId?: string | null
   ) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
+
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -190,6 +194,7 @@ export class AuditService {
       entityId: workpaper.id,
       type: 'audit.workpaper.uploaded',
       diff: { engagementId }
+
     });
 
     return workpaper;
@@ -202,6 +207,7 @@ export class AuditService {
     actorId?: string | null
   ) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
+
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -226,6 +232,7 @@ export class AuditService {
       entityId: finding.id,
       type: 'audit.finding.created',
       diff: { severity: dto.severity }
+
     });
 
     return finding;
@@ -240,6 +247,7 @@ export class AuditService {
     const finding = await this.prisma.finding.findFirst({
       where: { id: findingId, engagement: { tenantId } },
       include: { followUps: true }
+
     });
 
     if (!finding) {
@@ -407,5 +415,6 @@ export class AuditService {
       })),
       indicatorSummary
     };
+
   }
 }
