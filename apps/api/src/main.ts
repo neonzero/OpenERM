@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
+import { Logger as PinoLogger } from 'nestjs-pino';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -14,7 +15,7 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('http.port', 3000);
 
-  app.useLogger(app.get('NestPinoLogger'));
+  app.useLogger(app.get(PinoLogger));
   app.use(helmet());
   app.enableCors({ origin: configService.get<string>('http.corsOrigin', '*') });
   app.setGlobalPrefix('api');
