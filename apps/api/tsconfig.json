@@ -1,12 +1,12 @@
 {
   "extends": "../../packages/tsconfig/node.json",
   "compilerOptions": {
-    "module": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
 
     "baseUrl": "./src",
     "paths": {
-      "@app/*": ["./*"],
-      "@prisma": ["../../packages/prisma/prisma"]
+      "@app/*": ["./*"]
     }
   },
   "include": ["src/**/*", "test/**/*"],

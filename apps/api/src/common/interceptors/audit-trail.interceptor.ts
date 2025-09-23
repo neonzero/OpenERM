@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
 import { AuditTrailScope } from '@prisma/client';
+import { toPrismaInputJson } from '../utils/prisma-json';
 
 @Injectable()
 export class AuditTrailInterceptor implements NestInterceptor {
@@ -42,10 +43,10 @@ export class AuditTrailInterceptor implements NestInterceptor {
             entityId,
             entityType,
             action: `${request.method} ${request.originalUrl}`,
-            metadata: {
+            metadata: toPrismaInputJson({
               statusCode: response.statusCode,
-              response: responseBody
-            }
+              response: responseBody ?? null
+            })
           }
         });
       })

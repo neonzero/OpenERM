@@ -2,14 +2,14 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml ./
-COPY packages ./packages
-COPY apps/api/package.json ./apps/api/package.json
+COPY pnpm-lock.yaml ./
+COPY . .
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
+RUN pnpm --filter @open-erm/prisma generate
 
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=deps /app .
 RUN corepack enable pnpm && pnpm --filter @open-erm/api build
 
 FROM node:20-alpine AS runner

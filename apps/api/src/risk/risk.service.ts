@@ -104,8 +104,8 @@ export class RiskService {
         tenantId,
         riskId: dto.riskId,
         method: dto.method,
-        criteriaConfig: dto.criteriaConfig ?? null,
-        scores: dto.scores,
+        criteriaConfig: (dto.criteriaConfig as Prisma.InputJsonValue) ?? null,
+        scores: dto.scores as Prisma.InputJsonValue,
         residualScore,
         matrixBucket: bucket,
         reviewerId: dto.reviewerId ?? null,
@@ -146,7 +146,7 @@ export class RiskService {
         period: dto.period,
         scope: dto.scope ?? null,
         audience: dto.audience,
-        questions: dto.questions,
+        questions: dto.questions as Prisma.InputJsonValue,
         status: dto.status ?? 'Draft',
         dueDate: dto.dueDate ?? null
       }
@@ -202,6 +202,8 @@ export class RiskService {
 
   async heatmap(tenantId: string) {
     const risks = await this.prisma.risk.findMany({ where: { tenantId } });
+    type RiskRecord = Prisma.RiskGetPayload<{}>;
+    const typedRisks = risks as RiskRecord[];
 
     const matrix: Record<
       string,
@@ -232,7 +234,7 @@ export class RiskService {
       }
     }
 
-    risks.forEach((risk) => {
+    typedRisks.forEach((risk) => {
       const likelihood = risk.residualL ?? risk.inherentL;
       const impact = risk.residualI ?? risk.inherentI;
       const key = matrixKey(likelihood, impact);
@@ -251,8 +253,8 @@ export class RiskService {
     return {
       matrix,
       totals: {
-        totalRisks: risks.length,
-        appetiteBreaches: risks.filter((risk) => risk.appetiteBreached).length
+        totalRisks: typedRisks.length,
+        appetiteBreaches: typedRisks.filter((risk) => risk.appetiteBreached).length
       }
     };
 

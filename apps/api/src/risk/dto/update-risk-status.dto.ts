@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { RiskStatus } from '@prisma/client';
+
+const riskStatusEnum = z.enum(['Open', 'Closed', 'Accepted']);
 
 export const updateRiskStatusSchema = z.object({
-  status: z.nativeEnum(RiskStatus),
+  status: riskStatusEnum,
   reviewDate: z.coerce.date().optional()
 });
 
+export type RiskStatus = z.infer<typeof riskStatusEnum>;
 export type UpdateRiskStatusDto = z.infer<typeof updateRiskStatusSchema>;

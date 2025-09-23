@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { toPrismaInputJson } from '../common/utils/prisma-json';
 
 
 @Injectable()
@@ -25,7 +26,7 @@ export class EventsService {
         entity: params.entity,
         entityId: params.entityId,
         type: params.type,
-        diff: params.diff
+        diff: toPrismaInputJson(params.diff)
       }
     });
 
