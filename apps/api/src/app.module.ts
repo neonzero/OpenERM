@@ -8,6 +8,8 @@ import { RiskModule } from './risk/risk.module';
 import { CommonModule } from './common/common.module';
 import configuration from './config/configuration';
 
+import { QueuesModule } from './queues/queues.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
@@ -16,7 +18,8 @@ import configuration from './config/configuration';
     CommonModule,
     AuthModule,
     RiskModule,
-    AuditModule
+    AuditModule,
+    QueuesModule
   ]
 })
 export class AppModule {}

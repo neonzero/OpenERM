@@ -9,7 +9,9 @@ const envSchema = z.object({
   AUTH_ISSUER: z.string().optional(),
   AUTH_JWT_SECRET: z.string().min(32).optional(),
   HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  HTTP_CORS_ORIGIN: z.string().optional()
+  HTTP_CORS_ORIGIN: z.string().optional(),
+  REDIS_HOST: z.string().optional(),
+  REDIS_PORT: z.coerce.number().int().min(1).max(65535).optional()
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
@@ -37,6 +39,10 @@ export default () => {
     database: {
       url: env.DATABASE_URL,
       shadowUrl: env.SHADOW_DATABASE_URL
+    },
+    redis: {
+      host: env.REDIS_HOST ?? 'localhost',
+      port: env.REDIS_PORT ?? 6379
     }
   };
 };
