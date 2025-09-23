@@ -1,0 +1,370 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TenantAdmin
+  AuditManager
+  Auditor
+  RiskOwner
+  Viewer
+}
+
+model Tenant {
+  id         String          @id @default(cuid())
+  name       String
+  domain     String?
+  settings   Json?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  users      User[]
+  risks      Risk[]
+  controls   Control[]
+  assessments Assessment[]
+  questionnaires Questionnaire[]
+  questionnaireResponses QuestionnaireResponse[]
+  treatments Treatment[]
+  riskIndicators RiskIndicator[]
+  auditUniverses AuditUniverse[]
+  auditPlans AuditPlan[]
+  engagements Engagement[]
+  timesheets Timesheet[]
+  reports    Report[]
+  reportTemplates ReportTemplate[]
+  events     Event[]
+  refreshTokens RefreshToken[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String   @unique
+  name      String?
+  roles     Role[]
+  locale    String?  @default("en-US")
+  timeZone  String?  @default("UTC")
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timesheets Timesheet[]
+  findings  Finding[] @relation("FindingOwner")
+  followUps FollowUp[] @relation("FollowUpVerifier")
+  ownedRisks Risk[]   @relation("RiskOwner")
+  reviewedAssessments Assessment[] @relation("AssessmentReviewer")
+  assignedTreatments Treatment[] @relation("TreatmentOwner")
+  ownedControls Control[] @relation("ControlOwner")
+  refreshTokens RefreshToken[]
+}
+
+model Risk {
+  id               String      @id @default(cuid())
+  tenantId         String
+  title            String
+  description      String?
+  taxonomy         String[]
+  cause            String?
+  consequence      String?
+  ownerId          String?
+  inherentL        Int
+  inherentI        Int
+  residualL        Int?
+  residualI        Int?
+  residualScore    Int?
+  appetiteThreshold Int?
+  keyRisk          Boolean   @default(false)
+  appetiteBreached Boolean     @default(false)
+  status           String      @default("Open")
+  tags             String[]    @default([])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id])
+  assessments      Assessment[]
+  treatments       Treatment[]
+  indicators       RiskIndicator[]
+  questionnaireResponses QuestionnaireResponse[]
+}
+
+model Assessment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  riskId        String
+  method        String
+  criteriaConfig Json?
+  scores        Json
+  residualScore Int?
+  matrixBucket  String
+  reviewerId    String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk          Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  reviewer      User?    @relation("AssessmentReviewer", fields: [reviewerId], references: [id])
+}
+
+model Treatment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  riskId    String
+  title     String
+  ownerId   String?
+  due       DateTime?
+  status    String   @default("Open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk      Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  owner     User?    @relation("TreatmentOwner", fields: [ownerId], references: [id])
+  tasks     TreatmentTask[]
+}
+
+model TreatmentTask {
+  id          String   @id @default(cuid())
+  treatmentId String
+  title       String
+  status      String   @default("Pending")
+  due         DateTime?
+  treatment   Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+}
+
+model Questionnaire {
+  id        String   @id @default(cuid())
+  tenantId  String
+  period    String
+  scope     String?
+  audience  String[]
+  questions Json
+  status    String   @default("Draft")
+  dueDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  responses QuestionnaireResponse[]
+}
+
+model QuestionnaireResponse {
+  id               String   @id @default(cuid())
+  tenantId         String
+  questionnaireId  String
+  respondentEmail  String
+  status           String   @default("Pending")
+  answers          Json?
+  submittedAt      DateTime?
+  riskId           String?
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  questionnaire    Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  risk             Risk?        @relation(fields: [riskId], references: [id])
+}
+
+model RiskIndicator {
+  id        String   @id @default(cuid())
+  tenantId  String
+  riskId    String
+  name      String
+  direction String
+  threshold Float?
+  unit      String?
+  cadence   String?
+  latestValue       Float?
+  latestRecordedAt  DateTime?
+  breached          Boolean   @default(false)
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risk      Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  readings  IndicatorReading[]
+}
+
+model IndicatorReading {
+  id          String   @id @default(cuid())
+  indicatorId String
+  value       Float
+  recordedAt  DateTime @default(now())
+  indicator   RiskIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+}
+
+model Control {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  controlType String
+  frequency String?
+  ownerId   String?
+  status    String   @default("Design")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner     User?    @relation("ControlOwner", fields: [ownerId], references: [id])
+}
+
+model AuditUniverse {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  criticality   Int
+  lastAudit     DateTime?
+  nextDue       DateTime?
+  linkedRiskIds String[]
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model AuditPlan {
+  id           String   @id @default(cuid())
+  tenantId     String
+  period       String
+  status       String   @default("Draft")
+  resourceModel Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagements  Engagement[]
+  reports      Report[]
+}
+
+model Engagement {
+  id           String   @id @default(cuid())
+  tenantId     String
+  auditPlanId  String?
+  title        String
+  scope        String?
+  objectives   String?
+  status       String   @default("Planned")
+  start        DateTime?
+  end          DateTime?
+  entityRef    String?
+  criticality  Int?
+  team         Json?
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditPlan    AuditPlan? @relation(fields: [auditPlanId], references: [id], onDelete: SetNull)
+  racmLines    RACMLine[]
+  workingPapers WorkingPaper[]
+  findings     Finding[]
+  timesheets   Timesheet[]
+  reports      Report[]
+}
+
+model RACMLine {
+  id           String   @id @default(cuid())
+  engagementId String
+  process      String
+  riskRef      String
+  controlRef   String
+  assertion    String
+  testStep     String
+  version      Int      @default(1)
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+}
+
+model WorkingPaper {
+  id           String   @id @default(cuid())
+  engagementId String
+  kind         String
+  storageKey   String
+  checksum     String
+  uploadedBy   String?
+  uploadedAt   DateTime @default(now())
+  signedBy     String?
+  signedAt     DateTime?
+  tags         String[]
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+}
+
+model Finding {
+  id           String   @id @default(cuid())
+  engagementId String
+  severity     String
+  condition    String
+  cause        String
+  effect       String
+  recommendation String
+  status       String   @default("Open")
+  ownerId      String?
+  due          DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  owner        User?      @relation("FindingOwner", fields: [ownerId], references: [id])
+  followUps    FollowUp[]
+}
+
+model FollowUp {
+  id         String   @id @default(cuid())
+  findingId  String
+  status     String   @default("Open")
+  evidenceRefs String[]
+  verifiedBy String?
+  verifiedAt DateTime?
+  updatedAt  DateTime @updatedAt
+  finding    Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  verifier   User?    @relation("FollowUpVerifier", fields: [verifiedBy], references: [id])
+}
+
+model Timesheet {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String
+  engagementId String
+  date         DateTime
+  hours        Float
+  activity     String?
+  approvalStatus String @default("Pending")
+  createdAt    DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model ReportTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  sections    Json
+  placeholders String[]
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reports     Report[]
+}
+
+model Report {
+  id           String   @id @default(cuid())
+  tenantId     String
+  engagementId String?
+  auditPlanId  String?
+  templateId   String?
+  fileRef      String
+  generatedAt  DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  engagement   Engagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  auditPlan    AuditPlan? @relation(fields: [auditPlanId], references: [id], onDelete: SetNull)
+  template     ReportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+}
+
+model Event {
+  id       String   @id @default(cuid())
+  tenantId String
+  actorId  String?
+  entity   String
+  entityId String
+  type     String
+  diff     Json
+  timestamp DateTime @default(now())
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  metadata  Json?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+}
