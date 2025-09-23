@@ -1,5 +1,4 @@
-import { AuditTrailScope, PrismaClient, Role } from '@prisma/client';
-
+import { PrismaClient, Role } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -13,7 +12,12 @@ async function main() {
       domain: 'acme.example',
       settings: {
         riskAppetite: 9,
-        defaultLocale: 'en-US'
+        defaultLocale: 'en-US',
+        heatmap: {
+          greenMax: 6,
+          amberMax: 12,
+          redMax: 25
+        }
       }
     }
   });
@@ -58,6 +62,9 @@ async function main() {
       inherentI: 5,
       residualL: 2,
       residualI: 3,
+      residualScore: 6,
+      appetiteThreshold: 9,
+      keyRisk: true,
       status: 'Monitoring',
       tags: ['availability', 'cloud']
     }
@@ -86,6 +93,39 @@ async function main() {
       reviewerId: auditManager.id,
       approvedAt: new Date()
     }
+  });
+
+  const indicator = await prisma.riskIndicator.upsert({
+    where: { id: 'seed-indicator' },
+    update: {},
+    create: {
+      id: 'seed-indicator',
+      tenantId: tenant.id,
+      riskId: risk.id,
+      name: 'Monthly downtime minutes',
+      direction: 'above',
+      threshold: 30,
+      unit: 'minutes',
+      cadence: 'Monthly',
+      latestValue: 45,
+      latestRecordedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
+      breached: true
+    }
+  });
+
+  await prisma.indicatorReading.createMany({
+    data: [
+      {
+        indicatorId: indicator.id,
+        value: 25,
+        recordedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60)
+      },
+      {
+        indicatorId: indicator.id,
+        value: 45,
+        recordedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7)
+      }
+    ]
   });
 
   await prisma.treatment.upsert({
@@ -271,22 +311,6 @@ async function main() {
       entityId: risk.id,
       type: 'risk.seeded',
       diff: { status: 'Monitoring' }
-
-    }
-  });
-
-  await prisma.auditTrailEvent.create({
-    data: {
-      tenantId: tenant.id,
-      actorId: auditManager.id,
-      scope: AuditTrailScope.ENGAGEMENT,
-      entityId: engagement.id,
-      entityType: 'engagement',
-      action: 'seed.initialized',
-      metadata: {
-        source: 'seed-script',
-        description: 'Seed data created for demo tenant'
-      }
     }
   });
 }
@@ -294,7 +318,6 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-
     process.exit(1);
   })
   .finally(async () => {

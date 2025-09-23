@@ -5,7 +5,6 @@
   "scripts": {
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
-    "postinstall": "prisma generate",
     "deploy": "prisma migrate deploy",
     "seed": "ts-node --project tsconfig.json src/seed.ts"
   },

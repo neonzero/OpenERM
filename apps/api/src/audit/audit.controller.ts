@@ -101,6 +101,5 @@ export class AuditController {
   generateReport(@Body() body: unknown, @Headers('x-user-id') actorId?: string) {
     const dto = generateReportSchema.parse(body);
     return this.auditService.generateReport(dto, actorId ?? null);
-
   }
 }

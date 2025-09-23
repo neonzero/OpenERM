@@ -1,7 +1,7 @@
 {
   "extends": "./base.json",
   "compilerOptions": {
-
+    "module": "CommonJS",
     "outDir": "dist",
     "declaration": true,
     "sourceMap": true

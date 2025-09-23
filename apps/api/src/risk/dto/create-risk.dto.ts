@@ -11,7 +11,6 @@ export const createRiskSchema = z.object({
   inherentImpact: z.number().int().min(1).max(5),
   residualLikelihood: z.number().int().min(1).max(5).optional(),
   residualImpact: z.number().int().min(1).max(5).optional(),
-
   tags: z.array(z.string()).default([])
 });
 

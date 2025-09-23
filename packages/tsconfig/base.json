@@ -16,8 +16,6 @@
     "noUnusedParameters": false,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "isolatedModules": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "isolatedModules": true
   }
 }

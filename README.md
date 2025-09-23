@@ -25,7 +25,6 @@ covering core risk management and internal audit workflows alongside infrastruct
   follow-up evidence, and registering generated reports.
 - **Observability**: Structured logging, health checks, and persisted domain events to support audit
   trails and monitoring pipelines.
-
 - **DevOps**: Dockerfiles, docker-compose for local orchestration, Terraform scaffolding, and a CI
   pipeline (GitHub Actions) covering lint, type-check, and test stages.
 
@@ -78,4 +77,3 @@ pnpm typecheck
 - Extend observability with OpenTelemetry traces and metrics exporters.
 - Harden Terraform modules with provider-specific resources.
 - Enable workflow automation and SCIM provisioning (Phase 2 roadmap).
-

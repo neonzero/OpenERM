@@ -12,7 +12,6 @@ import { CreateFindingDto } from './dto/create-finding.dto';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
 import { GenerateReportDto } from './dto/generate-report.dto';
 
-
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
@@ -73,7 +72,7 @@ export class AuditService {
         tenantId,
         period: dto.period,
         status: dto.status ?? 'Draft',
-        resourceModel: (dto.resourceModel as Prisma.InputJsonValue) ?? null,
+        resourceModel: dto.resourceModel ?? null,
         engagements: {
           create: dto.engagements.map((engagement) => ({
             tenantId,
@@ -114,7 +113,7 @@ export class AuditService {
         end: dto.end ?? null,
         entityRef: dto.entityRef ?? null,
         criticality: dto.criticality ?? null,
-        team: (dto.team as Prisma.InputJsonValue) ?? null
+        team: dto.team ?? null
       }
     });
 
@@ -126,13 +125,11 @@ export class AuditService {
       diff: { title: dto.title }
     });
 
-
     return engagement;
   }
 
   async upsertRacm(tenantId: string, engagementId: string, dto: UpsertRacmDto, actorId?: string | null) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
-
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -170,7 +167,6 @@ export class AuditService {
     actorId?: string | null
   ) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
-
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -194,7 +190,6 @@ export class AuditService {
       entityId: workpaper.id,
       type: 'audit.workpaper.uploaded',
       diff: { engagementId }
-
     });
 
     return workpaper;
@@ -207,7 +202,6 @@ export class AuditService {
     actorId?: string | null
   ) {
     const engagement = await this.prisma.engagement.findFirst({ where: { id: engagementId, tenantId } });
-
     if (!engagement) {
       throw new NotFoundException('Engagement not found');
     }
@@ -232,7 +226,6 @@ export class AuditService {
       entityId: finding.id,
       type: 'audit.finding.created',
       diff: { severity: dto.severity }
-
     });
 
     return finding;
@@ -247,7 +240,6 @@ export class AuditService {
     const finding = await this.prisma.finding.findFirst({
       where: { id: findingId, engagement: { tenantId } },
       include: { followUps: true }
-
     });
 
     if (!finding) {
@@ -259,6 +251,7 @@ export class AuditService {
     const data: Prisma.FollowUpUpdateInput = {
       status: dto.status ?? existing?.status ?? 'Open',
       evidenceRefs: dto.evidenceRefs ?? existing?.evidenceRefs ?? [],
+      verifiedBy: dto.verify?.verifiedBy ?? existing?.verifiedBy ?? null,
       verifiedAt: dto.verify?.verifiedAt ?? existing?.verifiedAt ?? null
     };
 
@@ -275,6 +268,7 @@ export class AuditService {
           findingId,
           status: data.status as string,
           evidenceRefs: (data.evidenceRefs as string[]) ?? [],
+          verifiedBy: (data.verifiedBy as string | null) ?? null,
           verifiedAt: (data.verifiedAt as Date | null) ?? null
         }
       });
@@ -314,11 +308,7 @@ export class AuditService {
   }
 
   async listEngagements(tenantId: string) {
-    type EngagementWithFindings = Prisma.EngagementGetPayload<{
-      include: { findings: { select: { id: true } } };
-    }>;
-
-    const engagements = (await this.prisma.engagement.findMany({
+    const engagements = await this.prisma.engagement.findMany({
       where: { tenantId },
       orderBy: { start: 'desc' },
       include: {
@@ -327,7 +317,7 @@ export class AuditService {
           select: { id: true }
         }
       }
-    })) as EngagementWithFindings[];
+    });
 
     return engagements.map((engagement) => ({
       id: engagement.id,
@@ -343,13 +333,7 @@ export class AuditService {
   }
 
   async dashboard(tenantId: string) {
-    type PlanWithEngagements = Prisma.AuditPlanGetPayload<{ include: { engagements: true } }>;
-    type EngagementWithFindings = Prisma.EngagementGetPayload<{ include: { findings: true } }>;
-    type FindingRecord = Prisma.FindingGetPayload<{}>;
-    type TimesheetRecord = Prisma.TimesheetGetPayload<{}>;
-    type FollowUpRecord = Prisma.FollowUpGetPayload<{}>;
-
-    const transactionResults = await this.prisma.$transaction([
+    const [plans, engagements, findings, timesheets, followUps, userCount] = await this.prisma.$transaction([
       this.prisma.auditPlan.findMany({
         where: { tenantId },
         include: { engagements: true }
@@ -366,20 +350,9 @@ export class AuditService {
       this.prisma.user.count({ where: { tenantId } })
     ]);
 
-    const [plans, engagements, findings, timesheets, followUps, userCount] = transactionResults as [
-      PlanWithEngagements[],
-      EngagementWithFindings[],
-      FindingRecord[],
-      TimesheetRecord[],
-      FollowUpRecord[],
-      number
-    ];
-
     const planProgress = plans.map((plan) => {
       const total = plan.engagements.length;
-      const completed = plan.engagements.filter(
-        (engagement: PlanWithEngagements['engagements'][number]) => engagement.status === 'Closed'
-      ).length;
+      const completed = plan.engagements.filter((engagement) => engagement.status === 'Closed').length;
       return {
         planId: plan.id,
         period: plan.period,
@@ -430,10 +403,9 @@ export class AuditService {
         title: engagement.title,
         status: engagement.status,
         startDate: engagement.start ? engagement.start.toISOString() : null,
-        findingsOpen: engagement.findings.filter((finding: EngagementWithFindings['findings'][number]) => finding.status !== 'Closed').length
+        findingsOpen: engagement.findings.filter((finding) => finding.status !== 'Closed').length
       })),
       indicatorSummary
     };
-
   }
 }

@@ -35,7 +35,7 @@ describe('AuthService', () => {
     const { service, jwtMock, refreshTokenMock, userMock } = createService();
 
     const secret = 'super-secure-secret';
-    const tokenId = '8e4a9d3d-8caa-4bb1-9c94-112233445566';
+    const tokenId = 'c0ffee00-1234-4abc-a987-1234567890ab';
     const hashedSecret = await hash(secret);
 
     (refreshTokenMock.findUnique as jest.Mock).mockResolvedValue({
@@ -51,7 +51,6 @@ describe('AuthService', () => {
     (userMock.findUnique as jest.Mock).mockResolvedValue({
       id: 'user-1',
       roles: ['risk.viewer']
-
     });
 
     (jwtMock.signAsync as jest.Mock).mockResolvedValue('new-access-token');
@@ -88,7 +87,6 @@ describe('AuthService', () => {
     expect(userMock.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       select: { roles: true }
-
     });
   });
 

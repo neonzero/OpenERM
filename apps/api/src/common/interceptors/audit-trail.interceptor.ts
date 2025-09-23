@@ -8,7 +8,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
 import { AuditTrailScope } from '@prisma/client';
-import { toPrismaInputJson } from '../utils/prisma-json';
 
 @Injectable()
 export class AuditTrailInterceptor implements NestInterceptor {
@@ -26,12 +25,7 @@ export class AuditTrailInterceptor implements NestInterceptor {
           return;
         }
 
-        const scopeHeader = request.headers['x-audit-scope']?.toString();
-        const normalizedScope = scopeHeader?.replace(/[-\s]/g, '_').toUpperCase();
-        const scope =
-          normalizedScope && (Object.values(AuditTrailScope) as string[]).includes(normalizedScope)
-            ? (normalizedScope as AuditTrailScope)
-            : AuditTrailScope.ENGAGEMENT;
+        const scope = request.headers['x-audit-scope']?.toString() ?? AuditTrailScope.ENGAGEMENT;
         const entityId = request.headers['x-entity-id']?.toString() ?? 'unknown';
         const entityType = request.headers['x-entity-type']?.toString() ?? request.route?.path ?? 'unknown';
 
@@ -39,14 +33,14 @@ export class AuditTrailInterceptor implements NestInterceptor {
           data: {
             tenantId: user.tenantId,
             actorId: user.sub,
-            scope,
+            scope: scope as AuditTrailScope,
             entityId,
             entityType,
             action: `${request.method} ${request.originalUrl}`,
-            metadata: toPrismaInputJson({
+            metadata: {
               statusCode: response.statusCode,
-              response: responseBody ?? null
-            })
+              response: responseBody
+            }
           }
         });
       })
