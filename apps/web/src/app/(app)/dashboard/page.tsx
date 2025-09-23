@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+﻿import { Metadata } from 'next';
 import { apiClient } from '../../../lib/api/client';
 import { Badge } from '../../../components/ui/badge';
 import { StatCard } from '../../../components/ui/stat-card';
@@ -145,7 +145,7 @@ async function fetchRisks(): Promise<RiskRow[]> {
   try {
     const response = await apiClient.get<RisksResponse>(`/tenants/${TENANT_ID}/risks`);
     return response.items.map(toRiskRow);
-  } catch (error) {
+  } catch {
     return [
       {
         id: 'fallback-1',
@@ -178,7 +178,7 @@ async function fetchRisks(): Promise<RiskRow[]> {
 async function fetchHeatmap(): Promise<HeatmapResponse> {
   try {
     return await apiClient.get<HeatmapResponse>(`/tenants/${TENANT_ID}/risk-heatmap`);
-  } catch (error) {
+  } catch {
     return {
       matrix: {
         'L3_I4': {
@@ -208,7 +208,7 @@ async function fetchHeatmap(): Promise<HeatmapResponse> {
 async function fetchDashboard(): Promise<DashboardResponse> {
   try {
     return await apiClient.get<DashboardResponse>(`/tenants/${TENANT_ID}/audit-dashboard`);
-  } catch (error) {
+  } catch {
     return {
       planProgress: [
         { planId: 'plan-1', period: 'FY24', status: 'Approved', completed: 1, total: 3 }
@@ -231,7 +231,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
       timestamp: item.startDate ?? new Date().toISOString(),
       owner: item.owner ?? 'Unassigned'
     }));
-  } catch (error) {
+  } catch {
     return [
       {
         id: 'eng-1',
@@ -302,7 +302,7 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Likelihood × impact heat map</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Likelihood Ã— impact heat map</h3>
             <span className="text-xs text-slate-500 dark:text-slate-400">Shared from the risk register</span>
           </div>
           <div className="mt-4">
@@ -358,3 +358,5 @@ export default async function DashboardPage() {
     </section>
   );
 }
+
+

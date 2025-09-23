@@ -35,10 +35,11 @@ describe('AuthService', () => {
     const { service, jwtMock, refreshTokenMock, userMock } = createService();
 
     const secret = 'super-secure-secret';
+    const tokenId = '8e4a9d3d-8caa-4bb1-9c94-112233445566';
     const hashedSecret = await hash(secret);
 
     (refreshTokenMock.findUnique as jest.Mock).mockResolvedValue({
-      id: 'token-id',
+      id: tokenId,
       tenantId: 'tenant-1',
       userId: 'user-1',
       tokenHash: hashedSecret,
@@ -55,7 +56,7 @@ describe('AuthService', () => {
 
     (jwtMock.signAsync as jest.Mock).mockResolvedValue('new-access-token');
 
-    const result = await service.rotateRefreshToken({ refreshToken: `token-id.${secret}` });
+    const result = await service.rotateRefreshToken({ refreshToken: `${tokenId}.${secret}` });
 
     expect(result.accessToken).toBe('new-access-token');
     expect(result.refreshToken).toContain('.');
@@ -70,13 +71,13 @@ describe('AuthService', () => {
     expect(createArgs.data.tenantId).toBe('tenant-1');
     expect(createArgs.data.userId).toBe('user-1');
     expect(createArgs.data.tokenHash).not.toBe(newTokenSecret);
-    expect(createArgs.data.metadata.rotatedFrom).toBe('token-id');
+    expect(createArgs.data.metadata.rotatedFrom).toBe(tokenId);
     expect(createArgs.data.metadata.roles).toEqual(['risk.viewer']);
 
-    expect(refreshTokenMock.findUnique).toHaveBeenCalledWith({ where: { id: 'token-id' } });
+    expect(refreshTokenMock.findUnique).toHaveBeenCalledWith({ where: { id: tokenId } });
     expect(refreshTokenMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'token-id' },
+        where: { id: tokenId },
         data: expect.objectContaining({
           revokedAt: expect.any(Date),
           metadata: expect.objectContaining({ rotatedBy: 'self' })

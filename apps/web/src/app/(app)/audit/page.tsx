@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+﻿import { Metadata } from 'next';
 import { apiClient } from '../../../lib/api/client';
 import { StatCard } from '../../../components/ui/stat-card';
 import { EngagementTimeline, EngagementEvent } from '../../../components/audit/engagement-timeline';
@@ -44,7 +44,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
       owner: item.owner ?? 'Unassigned'
 
     }));
-  } catch (error) {
+  } catch {
     return [
       {
         id: 'eng-1',
@@ -69,7 +69,7 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
 async function fetchDashboard(): Promise<DashboardResponse> {
   try {
     return await apiClient.get<DashboardResponse>(`/tenants/${TENANT_ID}/audit-dashboard`);
-  } catch (error) {
+  } catch {
     return {
       planProgress: [
         { planId: 'plan-1', period: 'FY24', status: 'Approved', completed: 1, total: 3 }
@@ -163,3 +163,5 @@ export default async function AuditPage() {
     </section>
   );
 }
+
+

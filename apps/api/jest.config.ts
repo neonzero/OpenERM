@@ -9,6 +9,7 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
   },
+  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   collectCoverageFrom: ['src/**/*.ts'],
   coverageDirectory: '../coverage'
 };

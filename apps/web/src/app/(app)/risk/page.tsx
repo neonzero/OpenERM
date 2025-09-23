@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+﻿import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { apiClient } from '../../../lib/api/client';
 import { RiskTable, RiskRow } from '../../../components/risk/risk-table';
@@ -113,7 +113,7 @@ async function fetchRisks(): Promise<RiskRow[]> {
     const response = await apiClient.get<RisksResponse>(`/tenants/${TENANT_ID}/risks`);
     return response.items.map(toRiskRow);
 
-  } catch (error) {
+  } catch {
     return [
       {
         id: 'fallback-1',
@@ -146,7 +146,7 @@ async function fetchRisks(): Promise<RiskRow[]> {
 async function fetchHeatmap(): Promise<HeatmapResponse> {
   try {
     return await apiClient.get<HeatmapResponse>(`/tenants/${TENANT_ID}/risk-heatmap`);
-  } catch (error) {
+  } catch {
     return {
       matrix: {
         'L3_I4': {
@@ -204,7 +204,7 @@ export default async function RiskPage() {
         <h2 className="text-3xl font-semibold text-slate-900 dark:text-white">Risk register overview</h2>
         <p className="max-w-2xl text-sm text-slate-600 dark:text-slate-300">
           Monitor enterprise risks, assessments, and mitigation progress with per-tenant isolation and immutable audit trails.
-          Dashboards combine likelihood × impact concentrations with appetite breach tracking to focus remediation.
+          Dashboards combine likelihood Ã— impact concentrations with appetite breach tracking to focus remediation.
         </p>
       </div>
 
@@ -234,8 +234,8 @@ export default async function RiskPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Likelihood × Impact heat map</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Higher concentration → darker</span>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Likelihood Ã— Impact heat map</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Higher concentration â†’ darker</span>
           </div>
           <div className="mt-4">
             <RiskHeatmap cells={heatmapCells} />
@@ -282,10 +282,12 @@ export default async function RiskPage() {
         </div>
       </div>
 
-      <Suspense fallback={<div className="rounded-xl border border-dashed border-slate-300 p-10 text-center">Loading risk data…</div>}>
+      <Suspense fallback={<div className="rounded-xl border border-dashed border-slate-300 p-10 text-center">Loading risk dataâ€¦</div>}>
         <RiskTable data={riskRows} />
 
       </Suspense>
     </section>
   );
 }
+
+
