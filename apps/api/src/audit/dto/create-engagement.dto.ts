@@ -10,6 +10,8 @@ export const createEngagementSchema = z.object({
   end: z.coerce.date().optional(),
   entityRef: z.string().optional(),
   criticality: z.number().int().min(1).max(5).optional(),
+  priority: z.number().int().min(1).optional(),
+  riskScore: z.number().min(0).optional(),
   team: z.record(z.any()).optional()
 });
 
