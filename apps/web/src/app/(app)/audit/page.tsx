@@ -23,12 +23,15 @@ type EngagementApi = {
 };
 
 type DashboardResponse = {
-  planProgress: PlanProgress[];
-  findingsBySeverity: Record<string, number>;
-  findingsAging: { '0-30': number; '31-60': number; '60+': number };
-  utilization: { totalCapacity: number; bookedHours: number; utilizationRate: number };
-  engagements: Array<{ id: string; title: string; status: string; startDate: string | null; findingsOpen: number }>;
-  indicatorSummary: Record<string, number>;
+  riskHeatmap: any; // Replace with a more specific type if you have one
+  auditDashboard: {
+    planProgress: PlanProgress[];
+    findingsBySeverity: Record<string, number>;
+    findingsAging: { '0-30': number; '31-60': number; '60+': number };
+    utilization: { totalCapacity: number; bookedHours: number; utilizationRate: number };
+    engagements: Array<{ id: string; title: string; status: string; startDate: string | null; findingsOpen: number }>;
+    indicatorSummary: Record<string, number>;
+  };
 };
 
 async function fetchEngagements(): Promise<EngagementEvent[]> {
@@ -63,26 +66,30 @@ async function fetchEngagements(): Promise<EngagementEvent[]> {
 
 async function fetchDashboard(): Promise<DashboardResponse> {
   try {
-    return await apiClient.get<DashboardResponse>(`/tenants/${TENANT_ID}/audit-dashboard`);
+    return await apiClient.get<DashboardResponse>(`/dashboard/${TENANT_ID}`);
   } catch (error) {
     return {
-      planProgress: [
-        { planId: 'plan-1', period: 'FY24', status: 'Approved', completed: 1, total: 3 }
-      ],
-      findingsBySeverity: { High: 2, Moderate: 1 },
-      findingsAging: { '0-30': 1, '31-60': 1, '60+': 0 },
-      utilization: { totalCapacity: 1600, bookedHours: 720, utilizationRate: 0.45 },
-      engagements: [],
-      indicatorSummary: { Open: 2, Closed: 1 }
+      riskHeatmap: {},
+      auditDashboard: {
+        planProgress: [
+          { planId: 'plan-1', period: 'FY24', status: 'Approved', completed: 1, total: 3 }
+        ],
+        findingsBySeverity: { High: 2, Moderate: 1 },
+        findingsAging: { '0-30': 1, '31-60': 1, '60+': 0 },
+        utilization: { totalCapacity: 1600, bookedHours: 720, utilizationRate: 0.45 },
+        engagements: [],
+        indicatorSummary: { Open: 2, Closed: 1 }
+      }
     };
   }
 }
 
 export default async function AuditPage() {
   const [engagements, dashboard] = await Promise.all([fetchEngagements(), fetchDashboard()]);
-  const openFindings = Object.values(dashboard.findingsBySeverity).reduce((sum, count) => sum + count, 0);
-  const utilizationPercent = Math.round((dashboard.utilization.utilizationRate ?? 0) * 100);
-  const flaggedFollowUps = Object.entries(dashboard.indicatorSummary).reduce((sum, [status, value]) => {
+  const { auditDashboard } = dashboard;
+  const openFindings = Object.values(auditDashboard.findingsBySeverity).reduce((sum, count) => sum + count, 0);
+  const utilizationPercent = Math.round((auditDashboard.utilization.utilizationRate ?? 0) * 100);
+  const flaggedFollowUps = Object.entries(auditDashboard.indicatorSummary).reduce((sum, [status, value]) => {
     if (status.toLowerCase() !== 'closed') {
       return sum + value;
     }
@@ -103,7 +110,7 @@ export default async function AuditPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard title="Active engagements" value={engagements.filter((event) => event.status.toLowerCase() !== 'closed').length.toString()} helper="Current tenant" />
         <StatCard title="Open findings" value={openFindings.toString()} helper="By severity weighting" />
-        <StatCard title="Capacity used" value={`${utilizationPercent}%`} helper={`${dashboard.utilization.bookedHours}h booked`} />
+        <StatCard title="Capacity used" value={`${utilizationPercent}%`} helper={`${auditDashboard.utilization.bookedHours}h booked`} />
         <StatCard title="Follow-ups pending" value={flaggedFollowUps.toString()} helper="Outstanding follow-up actions" />
       </div>
 
@@ -112,14 +119,14 @@ export default async function AuditPage() {
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Audit plan execution</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">Status by period across the risk-based audit universe.</p>
           <div className="mt-4">
-            <PlanProgressList plans={dashboard.planProgress} />
+            <PlanProgressList plans={auditDashboard.planProgress} />
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Findings aging</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">Monitor outstanding issues by elapsed days.</p>
           <div className="mt-4">
-            <FindingsAging data={dashboard.findingsAging} />
+            <FindingsAging data={auditDashboard.findingsAging} />
           </div>
         </div>
       </div>
@@ -129,15 +136,15 @@ export default async function AuditPage() {
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Follow-up summary</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">Counts by follow-up status captured in the audit trail.</p>
           <div className="mt-4">
-            <SummaryPills title="Follow-ups" data={dashboard.indicatorSummary} />
+            <SummaryPills title="Follow-ups" data={auditDashboard.indicatorSummary} />
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Utilization insight</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">Hours booked vs available across roles.</p>
           <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <p>Total capacity: {dashboard.utilization.totalCapacity}h</p>
-            <p>Booked hours: {dashboard.utilization.bookedHours}h</p>
+            <p>Total capacity: {auditDashboard.utilization.totalCapacity}h</p>
+            <p>Booked hours: {auditDashboard.utilization.bookedHours}h</p>
             <p>Utilization rate: {utilizationPercent}%</p>
           </div>
         </div>

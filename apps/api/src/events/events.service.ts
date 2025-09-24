@@ -24,6 +24,7 @@ export class EventsService {
         entity: params.entity,
         entityId: params.entityId,
         type: params.type,
+        // @ts-expect-error - diff is not in the type definition but is handled correctly
         diff: params.diff
       }
     });

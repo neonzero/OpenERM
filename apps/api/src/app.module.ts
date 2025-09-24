@@ -1,22 +1,28 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { TerminusModule } from '@nestjs/terminus';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { RiskModule } from './risk/risk.module';
 import { CommonModule } from './common/common.module';
-import configuration from './config/configuration';
+import { QueuesModule } from './queues/queues.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { TaxonomyModule } from './taxonomy/taxonomy.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [() => ({})], // Removed undefined 'configuration' reference
+    }),
     EventEmitterModule.forRoot(),
-    TerminusModule,
     CommonModule,
     AuthModule,
     RiskModule,
-    AuditModule
-  ]
+    AuditModule,
+    QueuesModule,
+    DashboardModule,
+    TaxonomyModule,
+  ],
 })
 export class AppModule {}

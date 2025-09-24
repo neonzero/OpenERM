@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const createAuditPlanSchema = z.object({
   period: z.string().min(2),
   status: z.string().default('Draft'),
+  auditUniverseId: z.string().optional(),
   resourceModel: z.record(z.any()).optional(),
   engagements: z
     .array(

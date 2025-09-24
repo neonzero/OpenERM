@@ -134,6 +134,14 @@ export class AuditController {
     return this.auditService.createFinding(tenantId, engagementId, dto, actorId ?? null);
   }
 
+  @Post('findings/:findingId/create-treatment')
+  createTreatmentFromFinding(
+    @Param('findingId') findingId: string,
+    @Headers('x-user-id') actorId?: string,
+  ) {
+    return this.auditService.createTreatmentFromFinding(findingId, actorId ?? null);
+  }
+
   @Post('findings/:findingId/follow-up')
   recordFollowUp(
     @Param('findingId') findingId: string,
@@ -145,67 +153,13 @@ export class AuditController {
     return this.auditService.recordFollowUp(tenantId, findingId, dto, actorId ?? null);
   }
 
-  @Post('tenants/:tenantId/timesheets')
-  createTimesheetEntry(
-    @Param('tenantId') tenantId: string,
-    @Body() body: unknown,
-    @Headers('x-user-id') actorId?: string
-  ) {
-    const dto = createTimesheetEntrySchema.parse(body);
-    return this.auditService.createTimesheetEntry(tenantId, dto, actorId ?? null);
-  }
-
-  @Get('tenants/:tenantId/timesheets')
-  listTimesheets(@Param('tenantId') tenantId: string, @Query() query: Record<string, unknown>) {
-    const dto = listTimesheetsSchema.parse(query ?? {});
-    return this.auditService.listTimesheets(tenantId, dto);
-  }
-
-  @Post('tenants/:tenantId/timesheets/:timesheetId/approve')
-  approveTimesheet(
-    @Param('tenantId') tenantId: string,
-    @Param('timesheetId') timesheetId: string,
-    @Body() body: unknown,
-    @Headers('x-user-id') actorId?: string
-  ) {
-    const dto = approveTimesheetSchema.parse(body ?? {});
-    return this.auditService.approveTimesheet(tenantId, timesheetId, dto, actorId ?? null);
-  }
-
-  @Get('tenants/:tenantId/audit-plans/:planId/utilization')
-  planUtilization(@Param('tenantId') tenantId: string, @Param('planId') planId: string) {
-    return this.auditService.planUtilization(tenantId, planId);
-  }
-
-  @Post('engagements/:engagementId/programs')
-  upsertProgram(
+  @Post('engagements/:engagementId/recalibrate-risk-appetite')
+  recalibrateRiskAppetite(
     @Param('engagementId') engagementId: string,
-    @Body() body: unknown,
     @Headers('x-tenant-id') tenantId: string,
-    @Headers('x-user-id') actorId?: string
   ) {
-    const dto = upsertAuditProgramSchema.parse(body);
-    return this.auditService.upsertAuditProgram(tenantId, engagementId, dto, actorId ?? null);
-  }
+    return this.auditService.recalibrateRiskAppetite(tenantId, engagementId);
 
-  @Get('engagements/:engagementId/programs/latest')
-  latestProgram(@Param('engagementId') engagementId: string, @Headers('x-tenant-id') tenantId: string) {
-    return this.auditService.getLatestProgram(tenantId, engagementId);
-  }
-
-  @Post('tenants/:tenantId/report-templates')
-  upsertReportTemplate(
-    @Param('tenantId') tenantId: string,
-    @Body() body: unknown,
-    @Headers('x-user-id') actorId?: string
-  ) {
-    const dto = upsertReportTemplateSchema.parse(body);
-    return this.auditService.upsertReportTemplate(tenantId, dto, actorId ?? null);
-  }
-
-  @Get('tenants/:tenantId/report-templates')
-  listReportTemplates(@Param('tenantId') tenantId: string) {
-    return this.auditService.listReportTemplates(tenantId);
   }
 
   @Post('reports/generate')

@@ -10,7 +10,9 @@ export const riskQuerySchema = paginationSchema.extend({
   taxonomy: z.union([z.string(), z.array(z.string())]).optional(),
   keyRisk: z.coerce.boolean().optional(),
   appetiteBreached: z.coerce.boolean().optional(),
-  sort: z.enum(sortOptions).default('updatedAt')
+  sort: z.enum(sortOptions).default('updatedAt'),
+  likelihood: z.coerce.number().optional(),
+  impact: z.coerce.number().optional(),
 });
 
 export type RiskQueryDto = z.infer<typeof riskQuerySchema>;
