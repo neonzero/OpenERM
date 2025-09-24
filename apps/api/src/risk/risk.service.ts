@@ -1,53 +1,55 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { RiskQueryDto } from './dto/risk-query.dto';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateRiskAssessmentDto } from './dto/create-risk-assessment.dto';
 import { CreateRiskQuestionnaireDto } from './dto/create-risk-questionnaire.dto';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
-import { RiskQueryDto } from './dto/risk-query.dto';
-import { ImportRisksDto, riskImportRowSchema, RiskImportRow } from './dto/import-risks.dto';
-import { UpdateTreatmentStatusDto, UpdateTreatmentTaskDto } from './dto/update-treatment-status.dto';
+import { ImportRisksDto } from './dto/import-risks.dto';
+import { UpdateTreatmentStatusDto } from './dto/update-treatment-status.dto';
 import { MarkKeyRiskDto } from './dto/mark-key-risk.dto';
 import { CreateIndicatorDto } from './dto/create-indicator.dto';
 import { RecordIndicatorReadingDto } from './dto/record-indicator-reading.dto';
 import { SubmitQuestionnaireResponseDto } from './dto/submit-questionnaire-response.dto';
 import { IndicatorTrendQueryDto } from './dto/indicator-trend-query.dto';
 
-const matrixKey = (likelihood: number, impact: number) => `L${likelihood}_I${impact}`;
-
-const WORKFLOW_TRANSITIONS: Record<string, string[]> = {
-  Open: ['In Progress'],
-  'In Progress': ['Implemented'],
-  Implemented: ['Verified'],
-  Verified: []
-};
-
-const LIST_SEPARATOR = /[;,|]/;
-
-type RiskSettings = {
-  appetite?: number;
-  heatmap: {
-    greenMax: number;
-    amberMax: number;
-    redMax: number;
-  };
-};
-
-type ParsedImportRow = {
-  line: number;
-  row: RiskImportRow;
-};
-
-type ImportError = {
-  line: number;
-  message: string;
-};
-
 @Injectable()
 export class RiskService {
   constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+
+  async updateRiskFromFinding(tenantId: string, riskId: string) {
+    // TODO: Implement logic to update risk from finding
+    console.log(`Updating risk ${riskId} in tenant ${tenantId} from finding`);
+  }
+
+  async recalibrateRiskAppetite(tenantId: string, engagementId: string) {
+    // TODO: Implement logic to recalibrate risk appetite
+    console.log(`Recalibrating risk appetite for engagement ${engagementId} in tenant ${tenantId}`);
+  }
+
+  async updateRiskAssessmentFramework(tenantId: string, taxonomyId: string) {
+    // TODO: Implement logic to update risk assessment framework
+    console.log(`Updating risk assessment framework for taxonomy ${taxonomyId} in tenant ${tenantId}`);
+  }
+
+  async updateRiskScoresFromFinding(tenantId: string, riskId: string, severity: string) {
+    // TODO: Implement logic to update risk scores from finding
+    console.log(`Updating risk scores for risk ${riskId} in tenant ${tenantId} from finding with severity ${severity}`);
+  }
+
+  async updateControlEffectivenessFromFinding(tenantId: string, riskId: string) {
+    // TODO: Implement logic to update control effectiveness from finding
+    console.log(`Updating control effectiveness for risk ${riskId} in tenant ${tenantId}`);
+  }
+
+  async calibrateRiskModels(tenantId: string) {
+    // TODO: Implement logic to calibrate risk models
+    console.log(`Calibrating risk models for tenant ${tenantId}`);
+  }
+
 
   private async getRiskSettings(tenantId: string): Promise<RiskSettings> {
     const tenant = await this.prisma.tenant.findUnique({

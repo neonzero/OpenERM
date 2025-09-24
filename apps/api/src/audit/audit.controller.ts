@@ -86,6 +86,14 @@ export class AuditController {
     return this.auditService.createFinding(tenantId, engagementId, dto, actorId ?? null);
   }
 
+  @Post('findings/:findingId/create-treatment')
+  createTreatmentFromFinding(
+    @Param('findingId') findingId: string,
+    @Headers('x-user-id') actorId?: string,
+  ) {
+    return this.auditService.createTreatmentFromFinding(findingId, actorId ?? null);
+  }
+
   @Post('findings/:findingId/follow-up')
   recordFollowUp(
     @Param('findingId') findingId: string,
@@ -95,6 +103,14 @@ export class AuditController {
   ) {
     const dto = createFollowUpSchema.parse(body);
     return this.auditService.recordFollowUp(tenantId, findingId, dto, actorId ?? null);
+  }
+
+  @Post('engagements/:engagementId/recalibrate-risk-appetite')
+  recalibrateRiskAppetite(
+    @Param('engagementId') engagementId: string,
+    @Headers('x-tenant-id') tenantId: string,
+  ) {
+    return this.auditService.recalibrateRiskAppetite(tenantId, engagementId);
   }
 
   @Post('reports/generate')

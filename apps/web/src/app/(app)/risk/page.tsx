@@ -1,12 +1,29 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { apiClient } from '../../../lib/api/client';
+import { useReactTable, getCoreRowModel, getFilteredRowModel, ColumnDef } from '@tanstack/react-table';
+import { RiskTable, RiskRow } from '../../../components/risk/risk-table';
+
+// ... (imports)
+
+'use client';
+
+import { Metadata } from 'next';
+import { Suspense, useMemo, useState, useEffect } from 'react';
+import { apiClient } from '../../../lib/api/client';
 import { RiskTable, RiskRow } from '../../../components/risk/risk-table';
 import { Badge } from '../../../components/ui/badge';
 import { StatCard } from '../../../components/ui/stat-card';
 import { RiskHeatmap, HeatmapCell } from '../../../components/risk/risk-heatmap';
 import { TopRisksList, TopRisk } from '../../../components/risk/top-risks';
 import { SummaryPills } from '../../../components/risk/summary-pills';
+import { useReactTable, getCoreRowModel, getFilteredRowModel, getSortedRowModel, getPaginationRowModel, ColumnDef } from '@tanstack/react-table';
+import { ArrowUpDownIcon } from 'lucide-react';
+import { Input } from '../../../components/ui/input';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
+import { MoreHorizontalIcon } from 'lucide-react';
+import { ChevronDownIcon } from '@radix-ui/react-icons';
+import { Button } from '../../../components/ui/button';
 
 export const metadata: Metadata = {
   title: 'Risk Register | OpenERM'
@@ -186,8 +203,129 @@ function computeAppetiteBreaches(rows: RiskRow[]): Array<{ id: string; title: st
     });
 }
 
-export default async function RiskPage() {
-  const [riskRows, heatmapResponse] = await Promise.all([fetchRisks(), fetchHeatmap()]);
+export default function RiskPage() {
+  const [riskRows, setRiskRows] = useState<RiskRow[]>([]);
+  const [heatmapResponse, setHeatmapResponse] = useState<HeatmapResponse | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [risks, heatmap] = await Promise.all([fetchRisks(), fetchHeatmap()]);
+      setRiskRows(risks);
+      setHeatmapResponse(heatmap);
+    };
+    fetchData();
+  }, []);
+
+  const columns = useMemo<ColumnDef<RiskRow>[]>(
+    () => [
+      { accessorKey: 'title', header: 'Title' },
+      {
+        accessorKey: 'taxonomy',
+        header: 'Taxonomy',
+        cell: ({ getValue }) => {
+          const taxonomy = getValue<string[] | undefined>() ?? [];
+          return taxonomy.length > 0 ? taxonomy.join(', ') : '—';
+        }
+      },
+      {
+        accessorKey: 'inherentLikelihood',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Inherent L×I
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.inherentLikelihood}×{row.original.inherentImpact}
+          </span>
+        )
+      },
+      {
+        accessorKey: 'residualLikelihood',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Residual L×I
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const { residualLikelihood, residualImpact } = row.original;
+          if (residualLikelihood == null || residualImpact == null) {
+            return '—';
+          }
+          return (
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {residualLikelihood}×{residualImpact}
+            </span>
+          );
+        }
+      },
+      {
+        accessorKey: 'owner',
+        header: 'Owner',
+        cell: ({ getValue }) => getValue<string | null>() ?? '—'
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row, getValue }) => (
+          <div className="flex items-center gap-2">
+            <Badge>{getValue<string>()}</Badge>
+            {row.original.appetiteBreached ? <Badge className="bg-red-500/80 text-white">Appetite</Badge> : null}
+          </div>
+        )
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const risk = row.original
+ 
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontalIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => navigator.clipboard.writeText(risk.id)}
+                >
+                  Copy risk ID
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>View risk details</DropdownMenuItem>
+                <DropdownMenuItem>Delete risk</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: riskRows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
+
+  if (!heatmapResponse) {
+    return <div>Loading...</div>;
+  }
 
   const heatmapCells = buildHeatmapCells(heatmapResponse);
   const topRisks = computeTopRisks(riskRows);
@@ -236,7 +374,11 @@ export default async function RiskPage() {
             <span className="text-xs text-slate-500 dark:text-slate-400">Higher concentration → darker</span>
           </div>
           <div className="mt-4">
-            <RiskHeatmap cells={heatmapCells} />
+            <RiskHeatmap cells={heatmapCells} onCellClick={(bucket) => {
+              const [likelihood, impact] = bucket.split('-');
+              table.getColumn('inherentLikelihood')?.setFilterValue(likelihood);
+              table.getColumn('inherentImpact')?.setFilterValue(impact);
+            }} />
           </div>
         </div>
         <div className="flex flex-col gap-4">
@@ -281,7 +423,83 @@ export default async function RiskPage() {
       </div>
 
       <Suspense fallback={<div className="rounded-xl border border-dashed border-slate-300 p-10 text-center">Loading risk data…</div>}>
-        <RiskTable data={riskRows} />
+        <div className="flex items-center py-4">
+          <Input
+            placeholder="Filter by title..."
+            value={(table.getColumn('title')?.getFilterValue() as string) ?? ''}
+            onChange={(event) =>
+              table.getColumn('title')?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
+          <Button onClick={() => console.log('Create new risk')}>Create</Button>
+          <div className="ml-auto flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-auto">
+                  Status <ChevronDownIcon className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuCheckboxItem
+                  className="capitalize"
+                  checked={table.getColumn('status')?.getFilterValue() === 'Open'}
+                  onCheckedChange={(value) =>
+                    table.getColumn('status')?.setFilterValue(value ? 'Open' : undefined)
+                  }
+                >
+                  Open
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  className="capitalize"
+                  checked={table.getColumn('status')?.getFilterValue() === 'Closed'}
+                  onCheckedChange={(value) =>
+                    table.getColumn('status')?.setFilterValue(value ? 'Closed' : undefined)
+                  }
+                >
+                  Closed
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="ml-auto">
+                  Appetite <ChevronDownIcon className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuCheckboxItem
+                  className="capitalize"
+                  checked={table.getColumn('appetiteBreached')?.getFilterValue() === true}
+                  onCheckedChange={(value) =>
+                    table.getColumn('appetiteBreached')?.setFilterValue(value ? true : undefined)
+                  }
+                >
+                  Breached
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <RiskTable table={table} />
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
       </Suspense>
     </section>
   );

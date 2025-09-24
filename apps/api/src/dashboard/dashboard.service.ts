@@ -20,4 +20,16 @@ export class DashboardService {
       auditDashboard,
     };
   }
+
+  async adjustRiskAppetite(tenantId: string) {
+    // TODO: Implement logic to adjust risk appetite based on dashboard metrics
+    console.log(`Adjusting risk appetite for tenant ${tenantId}`);
+
+    await this.events.record(tenantId, {
+      entity: 'governance',
+      entityId: tenantId,
+      type: 'governance.risk_appetite.adjusted',
+      diff: { },
+    });
+  }
 }

@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { differenceInDays } from 'date-fns';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { RiskService } from '../risk/risk.service';
 import { CreateAuditPlanDto } from './dto/create-audit-plan.dto';
 import { CreateEngagementDto } from './dto/create-engagement.dto';
 import { UpsertAuditUniverseDto } from './dto/upsert-audit-universe.dto';
@@ -14,7 +15,15 @@ import { GenerateReportDto } from './dto/generate-report.dto';
 
 @Injectable()
 export class AuditService {
-  constructor(private readonly prisma: PrismaService, private readonly events: EventsService) {}
+  constructor(
+    private readonly prisma: PrismaService, 
+    private readonly events: EventsService,
+    @Inject(forwardRef(() => RiskService)) private readonly riskService: RiskService
+  ) {}
+
+  async recalibrateRiskAppetite(tenantId: string, engagementId: string) {
+    return this.riskService.recalibrateRiskAppetite(tenantId, engagementId);
+  }
 
   async upsertAuditUniverse(tenantId: string, dto: UpsertAuditUniverseDto, actorId?: string | null) {
     const results = [];
@@ -70,6 +79,9 @@ export class AuditService {
     const engagementsData = await Promise.all(
       dto.engagements.map(async (engagementDto) => {
         let criticality = engagementDto.criticality ?? 4;
+        let start = engagementDto.start ?? null;
+        let end = engagementDto.end ?? null;
+
         if (engagementDto.entityRef) {
           const auditUniverse = await this.prisma.auditUniverse.findFirst({
             where: { id: engagementDto.entityRef, tenantId },
@@ -77,7 +89,8 @@ export class AuditService {
           });
 
           if (auditUniverse && auditUniverse.risks.length > 0) {
-            const maxResidualScore = Math.max(...auditUniverse.risks.map((r: any) => r.residualScore ?? 0));
+            type RiskWithScore = { residualScore: number | null };
+            const maxResidualScore = Math.max(...auditUniverse.risks.map((r: RiskWithScore) => r.residualScore ?? 0));
             if (maxResidualScore > 15) {
               criticality = 1;
             } else if (maxResidualScore > 10) {
@@ -88,13 +101,20 @@ export class AuditService {
           }
         }
 
+        if (criticality === 1 && !start) {
+          // Expedited scheduling for high-priority engagements
+          const nextAvailableSlot = await this.findNextAvailableSlot();
+          start = nextAvailableSlot.start;
+          end = nextAvailableSlot.end;
+        }
+
         return {
           tenantId,
           title: engagementDto.title,
           scope: engagementDto.scope ?? null,
           objectives: engagementDto.objectives ?? null,
-          start: engagementDto.start ?? null,
-          end: engagementDto.end ?? null,
+          start,
+          end,
           entityRef: engagementDto.entityRef ?? null,
           criticality,
           priority: criticality,
@@ -125,6 +145,14 @@ export class AuditService {
     });
 
     return plan;
+  }
+
+  async findNextAvailableSlot(): Promise<{ start: Date; end: Date }> {
+    // TODO: Implement logic to find the next available slot for an audit engagement
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + 7);
+    return { start, end };
   }
 
   async createEngagement(tenantId: string, dto: CreateEngagementDto, actorId?: string | null) {
@@ -338,6 +366,16 @@ export class AuditService {
           verifiedBy: (data.verifiedBy as string | null) ?? null,
           verifiedAt: (data.verifiedAt as Date | null) ?? null
         }
+      });
+    }
+
+    if (dto.status === 'Closed') {
+      await this.events.record(tenantId, {
+        actorId: actorId ?? null,
+        entity: 'finding',
+        entityId: findingId,
+        type: 'audit.finding.closed',
+        diff: { severity: finding.severity, riskId: finding.riskId },
       });
     }
 
