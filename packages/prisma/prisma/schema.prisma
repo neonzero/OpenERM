@@ -38,6 +38,7 @@ model Tenant {
   reportTemplates ReportTemplate[]
   events     Event[]
   refreshTokens RefreshToken[]
+  taxonomies Taxonomy[]
 }
 
 model User {
@@ -60,12 +61,24 @@ model User {
   refreshTokens RefreshToken[]
 }
 
+model Taxonomy {
+  id          String @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String // e.g. 'risk', 'control'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  risks       Risk[]
+}
+
 model Risk {
   id               String      @id @default(cuid())
   tenantId         String
   title            String
   description      String?
-  taxonomy         String[]
+  taxonomyId       String?
   cause            String?
   consequence      String?
   ownerId          String?
@@ -83,10 +96,13 @@ model Risk {
   updatedAt        DateTime    @updatedAt
   tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   owner            User?       @relation("RiskOwner", fields: [ownerId], references: [id])
+  taxonomy         Taxonomy?   @relation(fields: [taxonomyId], references: [id])
   assessments      Assessment[]
   treatments       Treatment[]
   indicators       RiskIndicator[]
   questionnaireResponses QuestionnaireResponse[]
+  engagements      Engagement[]
+  findings         Finding[]
 }
 
 model Assessment {
@@ -209,6 +225,7 @@ model AuditUniverse {
   lastAudit     DateTime?
   nextDue       DateTime?
   linkedRiskIds String[]
+  auditPlans    AuditPlan[]
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
@@ -222,6 +239,8 @@ model AuditPlan {
   updatedAt    DateTime @updatedAt
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   engagements  Engagement[]
+  auditUniverseId String?
+  auditUniverse   AuditUniverse? @relation(fields: [auditUniverseId], references: [id])
   reports      Report[]
 }
 
@@ -237,6 +256,7 @@ model Engagement {
   end          DateTime?
   entityRef    String?
   criticality  Int?
+  priority     Int      @default(3)
   team         Json?
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   auditPlan    AuditPlan? @relation(fields: [auditPlanId], references: [id], onDelete: SetNull)
@@ -245,6 +265,8 @@ model Engagement {
   findings     Finding[]
   timesheets   Timesheet[]
   reports      Report[]
+  riskId       String?
+  risk         Risk?    @relation(fields: [riskId], references: [id])
 }
 
 model RACMLine {
@@ -286,8 +308,10 @@ model Finding {
   due          DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  riskId       String?
   engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
   owner        User?      @relation("FindingOwner", fields: [ownerId], references: [id])
+  risk         Risk?      @relation(fields: [riskId], references: [id])
   followUps    FollowUp[]
 }
 

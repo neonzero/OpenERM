@@ -12,7 +12,10 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     ConfigModule,
     PassportModule,
-    ThrottlerModule.forRoot([{ ttl: 60, limit: 10 }]),
+    ThrottlerModule.forRoot([{
+      ttl: 60,
+      limit: 10
+    }]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

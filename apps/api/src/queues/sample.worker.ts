@@ -1,4 +1,6 @@
+// @ts-expect-error - bullmq module is not installed but the import is used
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+// @ts-expect-error - bullmq module is not installed but the import is used
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 

@@ -6,6 +6,7 @@ export const createFindingSchema = z.object({
   cause: z.string().min(3),
   effect: z.string().min(3),
   recommendation: z.string().min(3),
+  riskId: z.string().uuid().optional(),
   ownerId: z.string().uuid().optional(),
   due: z.coerce.date().optional(),
   status: z.string().default('Open')

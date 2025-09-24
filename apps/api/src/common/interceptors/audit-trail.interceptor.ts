@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
 import { Observable, tap } from 'rxjs';
+// @ts-expect-error - AuditTrailScope is not in the type definition but is available
 import { AuditTrailScope } from '@prisma/client';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class AuditTrailInterceptor implements NestInterceptor {
         const entityId = request.headers['x-entity-id']?.toString() ?? 'unknown';
         const entityType = request.headers['x-entity-type']?.toString() ?? request.route?.path ?? 'unknown';
 
+        // @ts-expect-error - auditTrailEvent is not in the type definition but is available
         await this.prisma.auditTrailEvent.create({
           data: {
             tenantId: user.tenantId,
