@@ -10,5 +10,6 @@ import { RiskModule } from '../risk/risk.module';
   providers: [AuditService],
   controllers: [AuditController],
   exports: [AuditService],
+
 })
 export class AuditModule {}
