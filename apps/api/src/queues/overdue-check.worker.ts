@@ -39,7 +39,6 @@ export class OverdueCheckWorker {
     });
 
     for (const treatment of overdueTreatments) {
-      // @ts-expect-error - tenantId is not in the type definition but is available
       await this.events.record(treatment.tenantId, {
         entity: 'treatment',
         entityId: treatment.id,

@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { RiskService } from '../risk/risk.service';
 import { AuditService } from '../audit/audit.service';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class DashboardService {
   constructor(
     private readonly riskService: RiskService,
     private readonly auditService: AuditService,
+    private readonly events: EventsService,
   ) {}
 
   async getDashboardData(tenantId: string) {

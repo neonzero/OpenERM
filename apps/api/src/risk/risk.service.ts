@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { RiskQueryDto } from './dto/risk-query.dto';
@@ -8,13 +7,49 @@ import { CreateRiskDto } from './dto/create-risk.dto';
 import { CreateRiskAssessmentDto } from './dto/create-risk-assessment.dto';
 import { CreateRiskQuestionnaireDto } from './dto/create-risk-questionnaire.dto';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
-import { ImportRisksDto } from './dto/import-risks.dto';
-import { UpdateTreatmentStatusDto } from './dto/update-treatment-status.dto';
+import { ImportRisksDto, riskImportRowSchema } from './dto/import-risks.dto';
+import { UpdateTreatmentStatusDto, UpdateTreatmentTaskDto } from './dto/update-treatment-status.dto';
 import { MarkKeyRiskDto } from './dto/mark-key-risk.dto';
 import { CreateIndicatorDto } from './dto/create-indicator.dto';
 import { RecordIndicatorReadingDto } from './dto/record-indicator-reading.dto';
 import { SubmitQuestionnaireResponseDto } from './dto/submit-questionnaire-response.dto';
 import { IndicatorTrendQueryDto } from './dto/indicator-trend-query.dto';
+
+// Type definitions
+interface RiskSettings {
+  appetite: any;
+  heatmap?: {
+    greenMax: number;
+    amberMax: number;
+    redMax: number;
+  };
+}
+
+export interface ImportError {
+  line: number;
+  message: string;
+}
+
+export interface ParsedImportRow {
+  line: number;
+  row: any;
+}
+
+// Constants
+const WORKFLOW_TRANSITIONS: Record<string, string[]> = {
+  'Open': ['In Progress', 'Closed'],
+  'In Progress': ['Implemented', 'Closed'],
+  'Implemented': ['Verified', 'In Progress', 'Closed'],
+  'Verified': ['Closed', 'In Progress'],
+  'Closed': []
+};
+
+const LIST_SEPARATOR = ',';
+
+// Helper function
+const matrixKey = (likelihood: number, impact: number): string => {
+  return `${likelihood}-${impact}`;
+};
 
 @Injectable()
 export class RiskService {
@@ -78,22 +113,33 @@ export class RiskService {
   }
 
   private determineHeatmapColor(score: number, thresholds: RiskSettings['heatmap']): 'green' | 'amber' | 'red' {
-    if (score <= thresholds.greenMax) {
+    const greenMax = thresholds?.greenMax ?? 5;
+    const amberMax = thresholds?.amberMax ?? 12;
+    
+    if (score <= greenMax) {
       return 'green';
     }
-    if (score <= thresholds.amberMax) {
+    if (score <= amberMax) {
       return 'amber';
     }
     return 'red';
   }
 
   private buildRiskWhere(tenantId: string, query: RiskQueryDto): Prisma.RiskWhereInput {
-    const { search, status, ownerId, taxonomy, keyRisk, appetiteBreached } = query;
+    const { search, status, ownerId, taxonomy, keyRisk, appetiteBreached, likelihood, impact } = query;
     const where: Prisma.RiskWhereInput = {
       tenantId,
       ...(status ? { status } : {}),
       ...(ownerId ? { ownerId } : {})
     };
+
+    if (likelihood) {
+      where.residualL = likelihood;
+    }
+
+    if (impact) {
+      where.residualI = impact;
+    }
 
     if (search) {
       where.OR = [
@@ -254,6 +300,42 @@ export class RiskService {
     }
 
     return stringValue;
+  }
+
+  async get(tenantId: string, riskId: string) {
+    const risk = await this.prisma.risk.findFirst({
+      where: { id: riskId, tenantId },
+      include: {
+        owner: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        taxonomy: true,
+        treatments: true,
+        assessments: true,
+        indicators: true, // KRIs
+      },
+    });
+
+    if (!risk) {
+      throw new NotFoundException('Risk not found');
+    }
+
+    // I will also fetch the history here
+    const history = await this.prisma.event.findMany({
+        where: {
+            tenantId,
+            entity: 'risk',
+            entityId: riskId,
+        },
+        orderBy: {
+            timestamp: 'desc'
+        }
+    });
+
+    return {...risk, history};
   }
 
   async list(tenantId: string, query: RiskQueryDto) {
@@ -610,8 +692,7 @@ export class RiskService {
             tenantId,
             title: item.row.title,
             description: item.row.description ?? null,
-            // @ts-expect-error - taxonomy type mismatch but handled correctly
-          taxonomy: item.row.taxonomy,
+            taxonomy: item.row.taxonomy,
             cause: item.row.cause ?? null,
             consequence: item.row.consequence ?? null,
             ownerId: owner?.id ?? null,
@@ -706,6 +787,9 @@ export class RiskService {
     const settings = await this.getRiskSettings(tenantId);
     const risks = await this.prisma.risk.findMany({
       where: { tenantId },
+      include: {
+        taxonomy: true
+      },
       orderBy: [{ residualScore: 'desc' }, { updatedAt: 'desc' }]
     });
 

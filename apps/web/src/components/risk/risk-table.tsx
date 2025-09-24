@@ -1,4 +1,3 @@
-'''
 'use client';
 
 import {
@@ -317,4 +316,3 @@ export function RiskTable({
     </div>
   );
 }
-''

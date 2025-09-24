@@ -6,7 +6,8 @@
     "paths": {
       "@app/*": ["./*"],
       "@prisma": ["../../packages/prisma/prisma"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*", "test/**/*"],
   "exclude": ["node_modules", "dist"]

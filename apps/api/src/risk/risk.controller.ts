@@ -22,6 +22,11 @@ const kriTrendReportSchema = indicatorTrendQuerySchema.extend({
 export class RiskController {
   constructor(private readonly riskService: RiskService) {}
 
+  @Get('tenants/:tenantId/risks/:riskId')
+  get(@Param('tenantId') tenantId: string, @Param('riskId') riskId: string) {
+    return this.riskService.get(tenantId, riskId);
+  }
+
   @Get('tenants/:tenantId/risks')
   list(@Param('tenantId') tenantId: string, @Query() query: unknown) {
     const filters = riskQuerySchema.parse(query);

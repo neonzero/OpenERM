@@ -6,7 +6,7 @@ export class TaxonomyController {
   constructor(private readonly taxonomyService: TaxonomyService) {}
 
   @Patch(':taxonomyId')
-  updateTaxonomy(
+  async updateTaxonomy(
     @Param('tenantId') tenantId: string,
     @Param('taxonomyId') taxonomyId: string,
     @Body() body: any,

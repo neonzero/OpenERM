@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.6
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages ./packages
-COPY apps/api/package.json ./apps/api/package.json
+COPY apps/api ./apps/api
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
 FROM node:20-alpine AS builder

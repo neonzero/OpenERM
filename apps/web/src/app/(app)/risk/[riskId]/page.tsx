@@ -1,54 +1,88 @@
 'use client';
 
-import { apiClient } from '@/lib/api/client';
-import { Risk } from '@/lib/api/risk';
-import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { riskApi } from '@/lib/api';
+import { useTenant } from '@/components/providers/tenant-provider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Assuming tabs component exists
 
-// ... (imports)
+import { AssessmentsList } from '@/components/risk/assessments-list';
+import { TreatmentsList } from '@/components/risk/treatments-list';
+import { KRIList } from '@/components/risk/kri-list';
+import { HistoryList } from '@/components/risk/history-list';
 
-export default function RiskDetailPage({ params }: { params: { riskId: string } }) {
-  // ... (data fetching)
+function RiskOverview({ risk }: { risk: any }) {
+    return (
+        <div className="space-y-4">
+            <h2 className="text-2xl font-bold">{risk.title}</h2>
+            <p className="text-gray-500">{risk.description}</p>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <p className="font-bold">Status</p>
+                    <p>{risk.status}</p>
+                </div>
+                <div>
+                    <p className="font-bold">Owner</p>
+                    <p>{risk.owner?.name || 'N/A'}</p>
+                </div>
+                <div>
+                    <p className="font-bold">Inherent Score</p>
+                    <p>{risk.inherentL * risk.inherentI}</p>
+                </div>
+                <div>
+                    <p className="font-bold">Residual Score</p>
+                    <p>{risk.residualScore || 'N/A'}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default function RiskDetailPage() {
+  const params = useParams();
+  const { tenantId } = useTenant();
+  const riskId = params.riskId as string;
+
+  const { data: risk, isLoading, isError } = useQuery({
+    queryKey: ['risk', tenantId, riskId],
+    queryFn: () => riskApi.get(tenantId!, riskId),
+    enabled: !!tenantId && !!riskId,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError || !risk) return <div>Error fetching risk data</div>;
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold">{risk.title}</h1>
-      <Tabs defaultValue="overview" className="mt-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="treatments">Treatments</TabsTrigger>
-          <TabsTrigger value="controls">Controls</TabsTrigger>
-          <TabsTrigger value="kris">KRIs</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview">
-          <Button onClick={() => console.log('Reassessing risk')}>Reassess</Button>
-          <p>Overview content</p>
-        </TabsContent>
-        <TabsContent value="assessments">
-          {/* Placeholder for Assessments content */}
-          <p>Assessments content</p>
-        </TabsContent>
-        <TabsContent value="treatments">
-          {/* Placeholder for Treatments content */}
-          <p>Treatments content</p>
-        </TabsContent>
-        <TabsContent value="controls">
-          {/* Placeholder for Controls content */}
-          <p>Controls content</p>
-        </TabsContent>
-        <TabsContent value="kris">
-          {/* Placeholder for KRIs content */}
-          <p>KRIs content</p>
-        </TabsContent>
-        <TabsContent value="history">
-          {/* Placeholder for History content */}
-          <p>History content</p>
-        </TabsContent>
-      </Tabs>
+    <div className="container mx-auto py-10">
+        <Tabs defaultValue="overview">
+            <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="assessments">Assessments</TabsTrigger>
+                <TabsTrigger value="treatments">Treatments</TabsTrigger>
+                <TabsTrigger value="controls">Controls</TabsTrigger>
+                <TabsTrigger value="kris">KRIs</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+                <RiskOverview risk={risk} />
+            </TabsContent>
+            <TabsContent value="assessments">
+                <AssessmentsList assessments={risk.assessments} />
+            </TabsContent>
+            <TabsContent value="treatments">
+                <TreatmentsList treatments={risk.treatments} />
+            </TabsContent>
+            <TabsContent value="controls">
+                <p>Controls are not directly linked to risks in the current data model.</p>
+            </TabsContent>
+            <TabsContent value="kris">
+                <KRIList indicators={risk.indicators} />
+            </TabsContent>
+            <TabsContent value="history">
+                <HistoryList events={risk.history} />
+            </TabsContent>
+        </Tabs>
     </div>
   );
 }
