@@ -1,0 +1,81 @@
+# Simplified Docker Compose for Development
+# This version is optimized for development with volume mapping for live reload
+
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: openerm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - '4222:4222'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/openerm
+      SHADOW_DATABASE_URL: postgres://postgres:postgres@postgres:5432/openerm_shadow
+      REDIS_URL: redis://redis:6379/0
+      NEXT_PUBLIC_API_URL: http://api:3001/api
+    ports:
+      - '3001:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: pnpm --filter @open-erm/api dev
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    env_file:
+      - .env.local
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: pnpm --filter @open-erm/web dev
+
+volumes:
+  postgres_data:
