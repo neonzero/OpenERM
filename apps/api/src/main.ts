@@ -12,9 +12,9 @@ async function bootstrap(): Promise<void> {
 
   const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('http.port', 3000);
+  const port = configService.get<number>('http.port', 3001);
 
-  app.useLogger(app.get('NestPinoLogger'));
+  
   app.use(helmet());
   app.enableCors({ origin: configService.get<string>('http.corsOrigin', '*') });
   app.setGlobalPrefix('api');

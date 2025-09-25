@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, forwardRef, Inject, BadRequestException } from '@nestjs/common';
 import { differenceInDays } from 'date-fns';
 import { createHash, randomUUID } from 'crypto';
 import PDFDocument from 'pdfkit';
-import { Prisma } from '@prisma/client';
+import { Prisma, AuditUniverse, AuditPlan, Risk, Finding } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 import { RiskService } from '../risk/risk.service';
@@ -40,11 +40,14 @@ type EngagementPlanInput = {
 
 @Injectable()
 export class AuditService {
+  private readonly planningProvider: DeterministicPlanningProvider;
   constructor(
     private readonly prisma: PrismaService, 
     private readonly events: EventsService,
     @Inject(forwardRef(() => RiskService)) private readonly riskService: RiskService
-  ) {}
+  ) {
+    this.planningProvider = new DeterministicPlanningProvider();
+  }
 
   async recalibrateRiskAppetite(tenantId: string, engagementId: string) {
     return this.riskService.recalibrateRiskAppetite(tenantId, engagementId);
@@ -52,7 +55,7 @@ export class AuditService {
 
 
   async upsertAuditUniverse(tenantId: string, dto: UpsertAuditUniverseDto, actorId?: string | null) {
-    const results: Prisma.AuditUniverse[] = [];
+    const results: AuditUniverse[] = [];
 
     for (const entity of dto.entities) {
       if (entity.id) {
@@ -140,7 +143,7 @@ export class AuditService {
       type: dto.type,
       title: dto.title,
       description: dto.description ?? null,
-      content: dto.content as Prisma.JsonValue,
+      content: dto.content as Prisma.InputJsonValue,
       tags: dto.tags ?? []
     };
 
@@ -277,7 +280,7 @@ export class AuditService {
         start: dto.start ?? null,
         end: dto.end ?? null,
         entityRef: dto.entityRef ?? null,
-        criticality: dto.criticality ?? null,
+        criticality: metrics.criticality ?? null,
         team: (dto.team as Prisma.InputJsonValue) ?? Prisma.JsonNull
 
       }
@@ -329,13 +332,13 @@ export class AuditService {
         title: engagement.title,
         scope: engagement.scope ?? null
       },
-      risks: risks.map((risk) => ({
+      risks: risks.map((risk: any) => ({
         id: risk.id,
         title: risk.title,
         residualScore: risk.residualScore ?? null,
         status: risk.status
       })),
-      libraryItems: libraryItems.map((item) => ({
+      libraryItems: libraryItems.map((item: any) => ({
         id: item.id,
         type: item.type,
         title: item.title,
@@ -510,7 +513,7 @@ export class AuditService {
   }
 
   async createTreatmentFromFinding(findingId: string, actorId?: string | null) {
-    const finding = await this.prisma.finding.findFirst({
+    const finding: any = await this.prisma.finding.findFirst({
       where: { id: findingId },
     });
 
@@ -524,7 +527,6 @@ export class AuditService {
 
     const treatment = await this.prisma.treatment.create({
       data: {
-        // @ts-expect-error - tenantId is not in the type definition but is available
       tenantId: finding.tenantId,
         riskId: finding.riskId,
         title: `Treatment for finding: ${finding.condition}`,
@@ -534,7 +536,6 @@ export class AuditService {
       },
     });
 
-    // @ts-expect-error - tenantId is not in the type definition but is available
     await this.events.record(finding.tenantId, {
       actorId: actorId ?? null,
       entity: 'treatment',
@@ -566,13 +567,15 @@ export class AuditService {
     const baseData: Prisma.FollowUpUpdateInput = {
       status: dto.status ?? existing?.status ?? 'Open',
       evidenceRefs: dto.evidenceRefs ?? existing?.evidenceRefs ?? [],
-      // @ts-expect-error - verifiedBy is not in the type definition but is handled in the create case
-      verifiedBy: dto.verify?.verifiedBy ?? existing?.verifiedBy ?? null,
       verifiedAt: dto.verify?.verifiedAt ?? existing?.verifiedAt ?? null,
       actionPlan: dto.actionPlan ?? existing?.actionPlan ?? null,
       due: dto.due ?? existing?.due ?? null,
       verificationNotes: dto.verify?.notes ?? existing?.verificationNotes ?? null
     };
+
+    if (dto.verify?.verifiedBy) {
+      baseData.verifier = { connect: { id: dto.verify.verifiedBy } };
+    }
 
     let followUp;
 
@@ -585,12 +588,13 @@ export class AuditService {
       followUp = await this.prisma.followUp.create({
         data: {
           findingId,
-          status: data.status as string,
-          evidenceRefs: (data.evidenceRefs as string[]) ?? [],
-          // @ts-expect-error - verifiedBy is not in the type definition but is handled in the create case
-          verifiedBy: (data.verifiedBy as string | null) ?? null,
-          verifiedAt: (data.verifiedAt as Date | null) ?? null
-
+          status: dto.status ?? 'Open',
+          evidenceRefs: dto.evidenceRefs ?? [],
+          verifiedBy: dto.verify?.verifiedBy ?? null,
+          verifiedAt: dto.verify?.verifiedAt ?? null,
+          actionPlan: dto.actionPlan ?? null,
+          due: dto.due ?? null,
+          verificationNotes: dto.verify?.notes ?? null
         }
       });
     }
@@ -722,7 +726,7 @@ export class AuditService {
 
     return {
       totalHours,
-      entries: entries.map((entry) => ({
+      entries: entries.map((entry: any) => ({
         id: entry.id,
         engagementId: entry.engagementId,
         userId: entry.userId,
@@ -774,7 +778,7 @@ export class AuditService {
   }
 
   async planUtilization(tenantId: string, planId: string) {
-    const plan = await this.prisma.auditPlan.findFirst({
+    const plan: any = await this.prisma.auditPlan.findFirst({
       where: { id: planId, tenantId },
       include: { engagements: true }
     });
@@ -784,7 +788,7 @@ export class AuditService {
     }
 
     const resourceModel = this.parseResourceModel(plan.resourceModel);
-    const engagementIds = plan.engagements.map((engagement) => engagement.id);
+    const engagementIds = plan.engagements.map((engagement: any) => engagement.id);
 
     const timesheets = await this.prisma.timesheet.findMany({
       where: { tenantId, engagementId: { in: engagementIds } }
@@ -802,7 +806,7 @@ export class AuditService {
         .reduce((sum, allocation) => sum + allocation.hours, 0);
       const capacity = (resourceModel.capacity ?? {})[role] ?? planned;
       const actual = timesheets
-        .filter((entry) => (entry.role ?? 'Unspecified') === role)
+        .filter((entry: any) => (entry.role ?? 'Unspecified') === role)
         .reduce((sum, entry) => sum + entry.hours, 0);
       const utilization = capacity > 0 ? actual / capacity : actual > 0 ? 1 : 0;
       return {
@@ -815,12 +819,12 @@ export class AuditService {
       };
     });
 
-    const engagementSummaries = plan.engagements.map((engagement) => {
+    const engagementSummaries = plan.engagements.map((engagement: any) => {
       const planned = (resourceModel.allocations ?? [])
         .filter((allocation) => allocation.engagementId === engagement.id)
         .reduce((sum, allocation) => sum + allocation.hours, 0);
       const actual = timesheets
-        .filter((entry) => entry.engagementId === engagement.id)
+        .filter((entry: any) => entry.engagementId === engagement.id)
         .reduce((sum, entry) => sum + entry.hours, 0);
       return {
         engagementId: engagement.id,
@@ -871,7 +875,7 @@ export class AuditService {
           engagementId,
           name: dto.name ?? latest?.name ?? 'Engagement Program',
           status: dto.status ?? 'Draft',
-          metadata: dto.metadata ?? null,
+          metadata: dto.metadata as Prisma.InputJsonValue ?? null,
           version: (latest?.version ?? 0) + 1,
           publishedAt: dto.status && dto.status !== 'Draft' ? new Date() : null,
           steps: {
@@ -898,7 +902,7 @@ export class AuditService {
       entity: 'audit-program',
       entityId: program.id,
       type: 'audit.program.upserted',
-      diff: { version: program.version, steps: program.steps.length }
+      diff: { version: program.version, steps: (program as any).steps.length }
     });
 
     return program;
@@ -922,7 +926,7 @@ export class AuditService {
     const data: Prisma.ReportTemplateUncheckedCreateInput = {
       tenantId,
       name: dto.name,
-      sections: dto.sections as unknown as Prisma.JsonValue,
+      sections: dto.sections as unknown as Prisma.InputJsonValue,
       placeholders: dto.placeholders
     };
 
@@ -979,7 +983,7 @@ export class AuditService {
 
     const options = dto.options ?? { includeFindings: true };
     const placeholders = this.buildReportPlaceholders({ engagement, plan, risks, options });
-    const renderedSections = template.sections.map((section) => ({
+    const renderedSections = (template.sections as any[]).map((section) => ({
       title: section.title,
       body: this.resolvePlaceholders(section.body, placeholders)
     }));
@@ -1030,7 +1034,7 @@ export class AuditService {
       }
     });
 
-    return engagements.map((engagement) => ({
+    return engagements.map((engagement: any) => ({
       id: engagement.id,
       title: engagement.title,
       status: engagement.status,
@@ -1064,9 +1068,9 @@ export class AuditService {
       this.prisma.risk.findMany({ where: { tenantId } })
     ]);
 
-    const planProgress = plans.map((plan) => {
+    const planProgress = (plans as any[]).map((plan) => {
       const total = plan.engagements.length;
-      const completed = plan.engagements.filter((engagement) => engagement.status === 'Closed').length;
+      const completed = plan.engagements.filter((engagement: any) => engagement.status === 'Closed').length;
       return {
         planId: plan.id,
         period: plan.period,
@@ -1076,13 +1080,13 @@ export class AuditService {
       };
     });
 
-    const findingsBySeverity = findings.reduce<Record<string, number>>((acc, finding) => {
+    const findingsBySeverity = (findings as any[]).reduce<Record<string, number>>((acc, finding) => {
       acc[finding.severity] = (acc[finding.severity] ?? 0) + 1;
       return acc;
     }, {});
 
     const now = new Date();
-    const findingsAging = findings.reduce(
+    const findingsAging = (findings as any[]).reduce(
       (acc, finding) => {
         const age = differenceInDays(now, finding.updatedAt ?? finding.createdAt);
         if (age <= 30) acc['0-30'] += 1;
@@ -1093,21 +1097,21 @@ export class AuditService {
       { '0-30': 0, '31-60': 0, '60+': 0 }
     );
 
-    const bookedHours = timesheets.reduce((sum, entry) => sum + entry.hours, 0);
-    const plannedHours = plans.reduce((total, plan) => {
+    const bookedHours = (timesheets as any[]).reduce((sum, entry) => sum + entry.hours, 0);
+    const plannedHours = (plans as any[]).reduce((total, plan) => {
       const model = this.parseResourceModel(plan.resourceModel);
       return total + (model.allocations ?? []).reduce((sum, allocation) => sum + allocation.hours, 0);
     }, 0);
     const totalCapacity = Math.max(userCount * 160, bookedHours, plannedHours);
     const utilizationRate = totalCapacity > 0 ? bookedHours / totalCapacity : 0;
 
-    const indicatorSummary = followUps.reduce<Record<string, number>>((acc, followUp) => {
+    const indicatorSummary = (followUps as any[]).reduce<Record<string, number>>((acc, followUp) => {
       const key = followUp.status ?? 'Open';
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {});
 
-    const followUpAging = followUps.reduce(
+    const followUpAging = (followUps as any[]).reduce(
       (acc, followUp) => {
         if (followUp.due && followUp.status !== 'Closed') {
           const overdue = differenceInDays(now, followUp.due);
@@ -1149,12 +1153,12 @@ export class AuditService {
       riskHeatmap,
       topRisks,
       appetiteBreaches,
-      engagements: engagements.map((engagement) => ({
+      engagements: (engagements as any[]).map((engagement) => ({
         id: engagement.id,
         title: engagement.title,
         status: engagement.status,
         startDate: engagement.start ? engagement.start.toISOString() : null,
-        findingsOpen: engagement.findings.filter((finding) => finding.status !== 'Closed').length,
+        findingsOpen: engagement.findings.filter((finding: any) => finding.status !== 'Closed').length,
         priority: engagement.priority ?? null
       }))
     };
@@ -1193,7 +1197,7 @@ export class AuditService {
       const avgRisk =
         riskValues.length > 0
           ? riskValues.reduce((sum, score) => sum + score, 0) / riskValues.length
-          : engagement.riskScore ?? (entity?.criticality ?? engagement.criticality ?? 1) * 5;
+          : (engagement as any).riskScore ?? (entity?.criticality ?? (engagement as any).criticality ?? 1) * 5;
 
       const lastAudit = entity?.lastAudit ?? null;
       const recencyBoost = lastAudit ? Math.min(Math.max(differenceInDays(new Date(), lastAudit), 0) / 30, 12) : 6;
@@ -1261,7 +1265,7 @@ export class AuditService {
         data: {
           tenantId,
           name: key,
-          sections: sections as unknown as Prisma.JsonValue,
+          sections: sections as unknown as Prisma.InputJsonValue,
           placeholders: ['engagement.title', 'findings.table', 'summary.heatmap', 'followUps.total', 'followUps.overdue']
         }
       });
@@ -1277,8 +1281,8 @@ export class AuditService {
     options
   }: {
     engagement: (Prisma.EngagementGetPayload<{ include: { findings: true; racmLines: true } }> | null) | null;
-    plan: Prisma.AuditPlan | null;
-    risks: Prisma.Risk[];
+    plan: AuditPlan | null;
+    risks: Risk[];
     options: GenerateReportDto['options'];
   }) {
     const findingsTable = engagement && options.includeFindings !== false
@@ -1337,7 +1341,7 @@ export class AuditService {
     });
   }
 
-  private buildFindingsTable(findings: Prisma.Finding[]) {
+  private buildFindingsTable(findings: Finding[]) {
     if (findings.length === 0) {
       return 'No open findings.';
     }
@@ -1352,7 +1356,7 @@ export class AuditService {
     return [header, separator, ...rows].join('\n');
   }
 
-  private buildHeatmap(risks: Prisma.Risk[]) {
+  private buildHeatmap(risks: Risk[]) {
     const grid = Array.from({ length: 5 }, () => Array(5).fill(0));
 
     risks.forEach((risk) => {

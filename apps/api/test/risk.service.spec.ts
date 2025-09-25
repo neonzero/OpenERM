@@ -88,9 +88,9 @@ describe('RiskService', () => {
 
     const result = await service.heatmap('tenant-1');
 
-    expect(result.matrix['L2_I4'].count).toBe(1);
-    expect(result.matrix['L2_I4'].color).toBe('amber');
-    expect(result.matrix['L3_I2'].count).toBe(1);
+    expect(result.matrix['2-4'].count).toBe(1);
+    expect(result.matrix['2-4'].color).toBe('amber');
+    expect(result.matrix['3-2'].count).toBe(1);
     expect(result.totals.appetiteBreaches).toBe(1);
     expect(result.thresholds).toMatchObject({ greenMax: 4, amberMax: 10, redMax: 25 });
   });
@@ -123,7 +123,7 @@ describe('RiskService', () => {
 
     expect(prisma.assessment.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ matrixBucket: 'L4_I5', residualScore: 6 })
+        data: expect.objectContaining({ matrixBucket: '4-5', residualScore: 6 })
       })
     );
     expect(prisma.risk.update).toHaveBeenCalledWith({
@@ -238,7 +238,7 @@ describe('RiskService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           title: 'Cloud outage',
-          taxonomy: ['Operational', 'IT'],
+          taxonomy: ['Operational; IT'],
           keyRisk: true
         })
       })

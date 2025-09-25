@@ -17,6 +17,9 @@ COPY apps/web/package.json ./apps/web/
 # Install all dependencies
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
+# Install nest cli globally as fallback
+RUN pnpm add -g @nestjs/cli
+
 # 2. Builder image
 FROM node:20-alpine AS builder
 WORKDIR /app

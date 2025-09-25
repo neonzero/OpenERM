@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { RiskModule } from './risk/risk.module';
@@ -15,6 +16,7 @@ import { TaxonomyModule } from './taxonomy/taxonomy.module';
       isGlobal: true,
       load: [() => ({})], // Removed undefined 'configuration' reference
     }),
+    LoggerModule.forRoot(),
     EventEmitterModule.forRoot(),
     CommonModule,
     AuthModule,

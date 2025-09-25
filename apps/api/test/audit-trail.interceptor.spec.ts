@@ -1,6 +1,10 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { describe, expect, it, jest } from '@jest/globals';
-import { AuditTrailScope } from '@prisma/client';
+
+const AuditTrailScope = {
+  RISK: 'RISK',
+};
+
 import { of, lastValueFrom } from 'rxjs';
 import { AuditTrailInterceptor } from '../src/common/interceptors/audit-trail.interceptor';
 import { PrismaService } from '../src/common/prisma/prisma.service';

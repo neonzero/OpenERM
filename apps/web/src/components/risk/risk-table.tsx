@@ -115,6 +115,10 @@ export function RiskTable({
     return params.toString();
   };
 
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: sort, desc: false },
+  ]);
+
   const table = useReactTable({
     data,
     columns,
@@ -123,6 +127,10 @@ export function RiskTable({
     getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true,
     manualSorting: true,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
   });
 
   return (
@@ -163,8 +171,9 @@ export function RiskTable({
             </SelectContent>
           </Select>
           <Select
-            value={sort}
+            value={sorting[0]?.id ?? 'updatedAt'}
             onValueChange={(value) => {
+              setSorting([{ id: value, desc: false }]);
               router.push(pathname + '?' + createQueryString('sort', value));
             }}
           >
