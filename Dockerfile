@@ -9,7 +9,7 @@ COPY packages/prisma/package.json ./packages/prisma/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+RUN corepack enable pnpm && pnpm install --no-frozen-lockfile
 
 # 2. Build applications
 FROM node:20-alpine AS builder
